@@ -1,2 +1,3 @@
-# BATModules
-Trade model enhancements from the H2020 BATModel project in GAMS and GEMPACK
+# BATModules from the H2020 BATModel project
+
+BATModules are modular enhancements of trade simulation models developed by the H2020 BATModel project. The overarching aim of the BATModel project (www.BATModel.eu) is to improve the modelling of agri-food policies in existing tools and approaches. Distributing model developments as modular, well-documented pieces of code in the two main modelling languages (GAMS and GEMPACK) the project advancements become available to the (trade) modelling community. This extends the impact of the BATModel project beyond the model teams participating in the project and beyond the lifetime of the project.
