@@ -1,0 +1,1 @@
+How are we going to format the documentation? I think github can publish html pages, so that we can link to them in the software?
