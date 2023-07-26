@@ -1,4 +1,4 @@
-![BATModel_logoround](https://github.com/BATModules/BATModules/blob/main/images/BATModel_logo_round_small.png)
+![BATModel_logoround](/images/BATModel_logo_round_small.png)
 
 # Remove self-trade from aggregated GTAP regions
 *Modular code for enhancement of trade analysis with simulation models in GAMS or GEMPACK developed by Marijke Kuiper (Wageningen Economic Research)*
@@ -11,6 +11,6 @@ The code can be used as is on any GTAP derived aggregated database using the GTA
 
 ### **Documentation & code**
 Full documentation including how to link the module to a target model is provided in the BATModel wiki page 
-[RST Module - Remove self-trade from database](https://github.com/BATModules/BATModules/wiki/RST-Module-%E2%80%90-Remove-self%E2%80%90trade-from-aggregated-GTAP-regions). Code is provided in [GEMPACK](https://github.com/BATModules/BATModules/tree/main/RemoveSelfTrade/GEMPACK) in both Visual Gtree (*gmp*) and standard GEMPACK (*tab*) file format.
+[RST Module - Remove self-trade from database](https://github.com/BATModules/BATModules/wiki/RST-Module-%E2%80%90-Remove-self%E2%80%90trade-from-aggregated-GTAP-regions). Code is provided in [GEMPACK](/GEMPACK) in both Visual Gtree (*gmp*) and standard GEMPACK (*tab*) file format.
 
 ![BATModel_EUacknowledgement](https://user-images.githubusercontent.com/125276497/218486555-c0780914-fe2a-4fcf-9fe3-6da53eb8c6ca.png)
