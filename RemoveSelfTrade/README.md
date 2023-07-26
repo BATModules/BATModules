@@ -1,9 +1,8 @@
-todo: insert BATmodel logo
+![BATModel_logowide](https://user-images.githubusercontent.com/125276497/218484099-7fd27a63-95c1-4046-af88-a086a3e83b7f.png)
 
+  
 # Remove self trade from aggregated GTAP regions
-*Modular enhancement of trade analysis with simulation models in GAMS or GEMPACK developed by:*
-### Marijke Kuiper (Wageningen Economic Research)
- &nbsp;
+*Modular enhancement of trade analysis with simulation models in GAMS or GEMPACK developed by Marijke Kuiper (Wageningen Economic Research)*
 
 ### **Objective**
 The standard GTAP data aggregation procedure joins  regional endowments while keeping within-region trade separate. This is conceptually inconsistent and complicates analysis of trade impacts as well as tracing direct and indirect impacts through global value chains. The self-trade removal module can be included in the data preparation process moving self-trade that appears when aggregating countries or regions to domestic supply. The resulting database will have zero trade within model regions, simplifying international trade analysis to trade between model regions. 
@@ -12,5 +11,6 @@ The standard GTAP data aggregation procedure joins  regional endowments while ke
 The code can be used as is on any GTAP derived aggregated database using the GTAP model V7 nomenclature in case of GEMPACK based programs. It will affect model behaviour through databased changes for models using the standard GTAP two-layer Armington whereby domestic commodities  have a lower elasticity of substitution with a composite imported commodity (ESUBD) than the used for the upper nest where commodities from different regional sources are substituted (ESUBM). The self-trade adjustments moves part of the domestic commodities that where consumed domestically through self-trade from the upper to the lower nest thus lowering the effective ease of substitution between domestic and imported commodities. Furthermore trade taxes, domestic sales taxes and transport margins are adjusted in the process which may also affect model behaviour, especially in the case of trade policy simulations.
 
 ### **Documentation & code**
-Full documentation including how to link the module to a target model is provided in the documentation.\doc\[todo:insert file]. Code is provided in GEMPACK in .\code\gp
-todo: can we add hyperlinks to folders for quick access?
+Full documentation including how to link the module to a target model is provided in the BATModel wiki [todo:insert link]. Code is provided in GEMPACK in both Visual Gtree (*.gmp) and standard GEMPACK (*.tab) format.
+
+![BATModel_EUacknowledgement](https://user-images.githubusercontent.com/125276497/218486555-c0780914-fe2a-4fcf-9fe3-6da53eb8c6ca.png)
