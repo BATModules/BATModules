@@ -13,6 +13,6 @@ The code can be used as is on any GTAP derived aggregated database using the GTA
 Full documentation including how to link the module to a target model is provided in the BATModel 
 [Wiki page for the self-trade removal module](https://github.com/BATModules/BATModules/wiki/RST-Module-%E2%80%90-Remove-self%E2%80%90trade-from-aggregated-GTAP-regions). Code is provided in [GEMPACK](https://github.com/BATModules/BATModules/tree/main/RemoveSelfTrade/GEMPACK) in both Visual Gtree (*gmp*) and standard GEMPACK (*tab*) file format.
 
-[GEMPACK_test](RemoveSelfTrade/GEMPACK) 
+[GEMPACK_test](/RemoveSelfTrade/GEMPACK) 
 
 ![BATModel_EUacknowledgement](/images/BATModel_EUAcknowledgement_bottom.png)
