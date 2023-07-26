@@ -1,0 +1,40 @@
+!
+=== Code to remove self trade in GTAP databases ============
+
+--- PURPOSE
+Removal of trade within aggregated regions. Tariffs and subsidies 
+rates levied on internal trade flows are stored to inform modelling of 
+within-region trade barriers now captured in domestic sales taxes.
+
+---  USE 
+Provide a cmf file that links the logical file names in this code (GTAPSETS
+and GTAPDATA) to appropriate standard GTAPagg files (v7 nomenclature). The 
+DATA file will contain an adjusted version of the GTAPagg BaseData containing
+all headers needed by the standard GTAP v7 model with self-trade and all its
+associated flows removed.
+
+---  DOCUMENTATION
+Full documentation is available from the BATModules Wiki
+(https://github.com/BATModules/BATModules/wiki)
+
+---  VERSION
+Version 1.0 (July 2023)
+
+---  CONTACT 
+Marijke Kuiper (Wageningen Economic Research) - marijke.kuiper@wur.nl
+!
+
+! == Logical file names for input data & output of results !
+!$include .\RST\RST_Files.gmp!
+
+! == Sets and mappings !
+!$include .\RST\RST_SetsMaps.gmp!
+
+! == Read standard GTAP headers needing adjustment !
+!$include .\RST\RST_ReadData.gmp!
+
+! == Adjusting GTAP headers to remove self trade !
+!$include .\RST\RST_AdjustDatabase.gmp!
+
+! == Writing headers to new BaseData file!
+!$include .\RST\RST_WriteData.gmp!

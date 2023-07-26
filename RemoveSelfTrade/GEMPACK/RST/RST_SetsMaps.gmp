@@ -1,0 +1,28 @@
+!============================================================================
+  File      : RST_SetsMaps.gmp
+  Remarks   : V7 set definitions
+ =============================================================================!
+
+!Region Standard GTAP v7 sets!
+Set REG # regions #
+    read elements from file GTAPSETS header "REG";                 
+
+Set COMM # commodities #
+    read elements from file GTAPSETS header "COMM";                
+Set MARG # margin commodities #
+    read elements from file GTAPSETS header "MARG";                
+Subset MARG is subset of COMM;                              
+Set NMRG # non-margin commodities # = COMM - MARG;  
+
+Set ACTS # activities # 
+    read elements from file GTAPSETS header "ACTS";
+
+Set ENDW # endowments #
+  read elements from file GTAPSETS header "ENDW";
+!EndRegion! 
+ 
+!Sets specfic for self-trade removal (eases coding)!
+Set RST_FINDEM # Set with all final demand categories #
+  (hh, govt, cgds);
+Set RST_AGT # Set with all agents (intermediate and final demand)#
+ = ACTS + RST_FINDEM;

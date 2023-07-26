@@ -1,0 +1,12 @@
+!============================================================================
+  File      : RST_files.gmp
+  Remarks   : defines logical files names for input data and results
+ =============================================================================!
+
+! Files with input data !
+File GTAPSETS # File with set specification #;
+File GTAPDATA # File containing all Base Data #;
+
+! Files wih results !
+File (new) CHCK # File to check adjustments #;
+File (new) DATA # Adjusted GTAP basedata file #;

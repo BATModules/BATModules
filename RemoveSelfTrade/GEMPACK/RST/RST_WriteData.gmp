@@ -1,0 +1,42 @@
+!============================================================================
+  File      : RST_WriteData.gmp
+  Remarks   : Only headers used by the model are written or transferred. 
+              The original BaseData contains various headers with tariff detail 
+              not read by the standard GTAP model. Write statements are explicit
+              to avoid transferring (new) headers that may need adjustment for
+              self-trade.
+ =============================================================================!
+
+Transfer "DREL" from file GTAPDATA to file DATA;
+Transfer "DVER" from file GTAPDATA to file DATA;
+Write VDFB to file DATA header "VDFB";
+Write VMFB to file DATA header "VMFB";
+Write VDFP to file DATA header "VDFP";
+Write VMFP to file DATA header "VMFP";
+Transfer "EVOS" from file GTAPDATA to file DATA;
+Transfer "EVFB" from file GTAPDATA to file DATA;
+Transfer "EVFP" from file GTAPDATA to file DATA;
+Transfer "MAKS" from file GTAPDATA to file DATA;
+Transfer "MAKB" from file GTAPDATA to file DATA;
+Write VDGB to file DATA header "VDGB";
+Write VMGB to file DATA header "VMGB";
+Write VDGP to file DATA header "VDGP";
+Write VMGP to file DATA header "VMGP";
+Write VDPB to file DATA header "VDPB";
+Write VMPB to file DATA header "VMPB";
+Write VDPP to file DATA header "VDPP";
+Write VMPP to file DATA header "VMPP";
+Write VDIB to file DATA header "VDIB";
+Write VMIB	to file DATA header "VMIB";
+Write VDIP to file DATA header "VDIP";
+Write VMIP to file DATA header "VMIP";
+Transfer "SAVE" from file GTAPDATA to file DATA;
+Transfer "VDEP" from file GTAPDATA to file DATA;
+Write VXSB to file DATA header "VXSB";
+Write VFOB to file DATA header "VFOB";
+Write VCIF to file DATA header "VCIF";
+Write VMSB to file DATA header "VMSB";
+Write VST to file DATA header "VST";
+Transfer "DPSM" from file GTAPDATA to file DATA;
+Write VTMFSD to file DATA header "VTWR";
+Transfer "VKB" from file GTAPDATA to file DATA;

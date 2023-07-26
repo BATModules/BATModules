@@ -1,0 +1,729 @@
+!
+=== Code to remove self trade in GTAP databases ============
+
+--- PURPOSE
+Removal of trade within aggregated regions. Tariffs and subsidies 
+rates levied on internal trade flows are stored to inform modelling of 
+within-region trade barriers now captured in domestic sales taxes.
+
+---  USE 
+Provide a cmf file that links the logical file names in this code (GTAPSETS
+and GTAPDATA) to appropriate standard GTAPagg files (v7 nomenclature). The 
+DATA file will contain an adjusted version of the GTAPagg BaseData containing
+all headers needed by the standard GTAP v7 model with self-trade and all its
+associated flows removed.
+
+---  DOCUMENTATION
+Full documentation is available from the BATModules Wiki
+(https://github.com/BATModules/BATModules/wiki)
+
+---  VERSION
+Version 1.0 (July 2023)
+
+---  CONTACT 
+Marijke Kuiper (Wageningen Economic Research) - marijke.kuiper@wur.nl
+!
+
+! == Logical file names for input data & output of results !
+!============================================================================
+  File      : RST_files.gmp
+  Remarks   : defines logical files names for input data and results
+ =============================================================================!
+
+! Files with input data !
+File GTAPSETS # File with set specification #;
+File GTAPDATA # File containing all Base Data #;
+
+! Files wih results !
+File (new) CHCK # File to check adjustments #;
+File (new) DATA # Adjusted GTAP basedata file #;
+
+
+! == Sets and mappings !
+!============================================================================
+  File      : RST_SetsMaps.gmp
+  Remarks   : V7 set definitions
+ =============================================================================!
+
+!Region Standard GTAP v7 sets!
+Set REG # regions #
+    read elements from file GTAPSETS header "REG";                 
+
+Set COMM # commodities #
+    read elements from file GTAPSETS header "COMM";                
+Set MARG # margin commodities #
+    read elements from file GTAPSETS header "MARG";                
+Subset MARG is subset of COMM;                              
+Set NMRG # non-margin commodities # = COMM - MARG;  
+
+Set ACTS # activities # 
+    read elements from file GTAPSETS header "ACTS";
+
+Set ENDW # endowments #
+  read elements from file GTAPSETS header "ENDW";
+!EndRegion! 
+ 
+!Sets specfic for self-trade removal (eases coding)!
+Set RST_FINDEM # Set with all final demand categories #
+  (hh, govt, cgds);
+Set RST_AGT # Set with all agents (intermediate and final demand)#
+ = ACTS + RST_FINDEM;
+
+
+! == Read standard GTAP headers needing adjustment !
+!============================================================================
+  File      : RST_ReadData.gmp
+  Remarks   : Read standard GTAP headers that will need to be adjusted for
+              removing self-trade
+ =============================================================================!
+
+!Region Intermediate demand!
+Coefficient (ge 0)(all,c,COMM)(all,a,ACTS)(all,r,REG)
+  VMFP(c,a,r) # expenditure on imp. c by act. a in r at producer prices #;
+  Read VMFP from file GTAPDATA header "VMFP";
+Coefficient (ge 0)(all,c,COMM)(all,a,ACTS)(all,r,REG)
+  VMFB(c,a,r) # expenditure on imported c by act. a in r at basic prices #;
+  Read VMFB from file GTAPDATA header "VMFB";
+Coefficient (ge 0)(all,c,COMM)(all,a,ACTS)(all,r,REG)
+  VDFP(c,a,r) # expenditure on dom. c by act. a in r at producer prices #;
+  Read VDFP from file GTAPDATA header "VDFP";  
+Coefficient (ge 0)(all,c,COMM)(all,a,ACTS)(all,r,REG)
+  VDFB(c,a,r) # expenditure on domestic c by act. a in r at basic prices #;
+  Read VDFB from file GTAPDATA header "VDFB";
+!EndRegion!
+
+!Region Private demand!
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+  VMPB(c,r) # private household expenditure on imp. c in r at basic prices #;
+  Read VMPB from file GTAPDATA header "VMPB";  
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+  VMPP(c,r) # private hhld expenditure on imp. c in r at producer prices #;
+  Read VMPP from file GTAPDATA header "VMPP";  
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+  VDPP(c,r) # private hhld expenditure on dom. c in r at producer prices #; 
+  Read VDPP from file GTAPDATA header "VDPP";
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+  VDPB(c,r) # private household expenditure on dom. c in r at basic prices #;
+  Read VDPB from file GTAPDATA header "VDPB";
+!EndRegion!
+
+!Region Government demand!
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+  VMGP(c,r) # government expenditure on imp. c in r at producer prices #;
+  Read VMGP from file GTAPDATA header "VMGP";
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+  VMGB(c,r) # government expenditure on imported c in r at basic prices #;
+  Read VMGB from file GTAPDATA header "VMGB";
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+  VDGP(c,r) # government expenditure on dom. c in r at producer prices #;
+  Read VDGP from file GTAPDATA header "VDGP";
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+  VDGB(c,r) # government expenditure on domestic c in r at basic prices #;
+  Read VDGB from file GTAPDATA header "VDGB";
+!EndRegion!
+
+!Region Investment demand!
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+  VDIP(c,r) # investment expenditure on dom. c in r at producer prices #; 
+  Read VDIP from file GTAPDATA header "VDIP";
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+  VMIP(c,r) # investment expenditure on imp. c in r at producer prices #;
+  Read VMIP from file GTAPDATA header "VMIP";
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+  VMIB(c,r) # investment expenditure on imported c in r at basic prices #;
+  Read VMIB from file GTAPDATA header "VMIB";
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+  VDIB(c,r) # investment expenditure on domestic c in r at basic prices #;
+  Read VDIB from file GTAPDATA header "VDIB";  
+!EndRegion!  
+
+!Region Bilateral trade flows!
+Coefficient (ge 0)(all,c,COMM)(all,s,REG)(all,d,REG)
+  VFOB(c,s,d) 
+  # value of exports of c from s to d at FOB prices (tradeables only) #;
+  Read VFOB from file GTAPDATA header "VFOB";
+Coefficient (ge 0)(all,c,COMM)(all,s,REG)(all,d,REG)
+  VCIF(c,s,d) 
+  # value of imports of c from s to d at CIF prices (tradeables only) #;
+  Read VCIF from file GTAPDATA header "VCIF";
+Coefficient (ge 0)(all,c,COMM)(all,s,REG)(all,d,REG)
+  VMSB(c,s,d) 
+  # value of imports of c from s to d at domestic (basic) prices #;
+  Read VMSB from file GTAPDATA header "VMSB";
+Coefficient (ge 0)(all,c,COMM)(all,s,REG)(all,d,REG)
+  VXSB(c,s,d) 
+  # value of exports of  c from s to d at basic prices (tradeables only) #;
+  Read VXSB from file GTAPDATA header "VXSB";
+!EndRegion!
+
+!Region Trade margins!
+Coefficient (ge 0) (all,m,MARG)(all,c,COMM)(all,s,REG)(all,d,REG)
+  VTMFSD(m,c,s,d)
+  # int'l margin usage, by margin, freight, source, and destination #;
+  Read VTMFSD from file GTAPDATA header "VTWR";
+Coefficient (ge 0)(all,m,MARG)(all,r,REG)
+  VST(m,r) 
+  # value of exports of margin m from r for int'l transport at basic prices #;
+  Read VST from file GTAPDATA header "VST";
+ !EndRegion!
+
+
+! == Adjusting GTAP headers to remove self trade !
+!============================================================================
+  File      : RST_AdjustDatabase.gmp
+  Remarks   : Step-wise removal of self trade while keeping the SAM balanced
+ =============================================================================!
+
+Zerodivide default 0;
+
+!Region Share of self-trade in total imports!
+
+! To get a sense of the importance of self-trade and the need to adjust import
+subsitution elasticities we compute the share of self-trade in imports!
+
+Coefficient (all,c,COMM)(all,r,REG) RSTshrSLFTRD(c,r)
+# Share of self-trade in total imports by commodity c and region r #;
+Formula (all,c,COMM)(all,r,REG) 
+ RSTshrSLFTRD(c,r) = VCIF(c,r,r)/sum{s,REG,VCIF(c,s,r)};
+Write RSTshrSLFTRD to file DATA header "SLFT";
+
+!EndRegion!
+
+
+! Step 1: Export duties (tee_) on own trade moved to import duties (tmm_) 
+ with FOB adjustments results in unbalanced SAM. This move avoids issues
+ with unbalanced domestic accounts which include tee on top of the MAKE
+ matrix for exported commodities!
+
+!Region Step 1: Move export taxes (subsidies) on self-trade to import duties!
+
+!Value of export tariffs on exports to own region!
+Coefficient (all,c,COMM)(all,r,REG) RST_TEE_s(c,r)  
+# Export tariffs on self-trade moved to domestic sales (mil. $)#;
+  Formula (all,c,COMM)(all,r,REG)
+ RST_TEE_s(c,r) = VFOB(c,r,r) - VXSB(c,r,r);
+ 
+! Remove the export taxes from trade to self in FOB !
+Formula (all,c,COMM)(all,r,REG)
+ VFOB(c,r,r)= VFOB(c,r,r) - RST_TEE_s(c,r);
+
+!Remove export taxes to self!
+Formula (all,c,COMM)(all,r,REG) 
+ VXSB(c,r,r)= VFOB(c,r,r);
+ 
+! Add export taxes to import duties on trade to self!
+Formula (all,c,COMM)(all,r,REG)
+ VCIF(c,r,r)=  VCIF(c,r,r) - RST_TEE_s(c,r);
+!Note: formula is a minus as the import tarifss (tmm) are computed as VMSB -
+VCIF. Thus lowering VCIF with RST_TEE_s increases the import duties by
+RST_TEE_s!
+
+!EndRegion!
+
+
+! Step 2: After removing the export duties from FOB various shares and other
+intermediate coefficient can be computed to re-allocate flows without
+unbalancing the SAM!
+
+!Region Step 2: Compute data needed in adjustments (proportionality shares)!
+
+! Value of self-trade to be moved to domestic (FOB)!
+Coefficient (all,c,COMM)(all,r,REG) RST_VFOB_s(c,r) 
+  # Self-trade of c within region r at FOB prices (mil. $)#;
+  Formula (all,c,COMM)(all,r,REG)
+   RST_VFOB_s(c,r) = VFOB(c,r,r);
+ write RST_VFOB_s to file CHCK header "VFOB";
+
+!Value of import tariffs on imports from own region!
+Coefficient (all,c,COMM)(all,r,REG) RST_TMM_s(c,r) 
+# Self-trade import tariffs on c within region r (mil. $)#;
+ Formula (all,c,COMM)(all,r,REG)
+ RST_TMM_s(c,r) = VMSB(c,r,r) - VCIF(c,r,r);
+ write RST_TMM_s to file CHCK header "IMPT";
+ 
+!Value of margins used for transport of exports to own region!
+Coefficient (all,c,COMM)(all,m,MARG)(all,r,REG) RST_VTMFSD_s(c,m,r) 
+# Use of margin m for self-trade within region r (mil. $)#;
+ Formula (all,c,COMM)(all,m,MARG)(all,r,REG)
+  RST_VTMFSD_s(c,m,r) = VTMFSD(m,c,r,r);
+  Write RST_VTMFSD_s to file CHCK header "MRGN";
+
+
+!Region Proportionality assumption to reallocate trade flows over agents!
+
+! To allocate the previously to itself exported commodities we compute the share
+  of each agent in total imports in destination region d !
+
+Coefficient (all,c,COMM)(all,g,RST_AGT)(all,r,REG)
+  RST_IMPDEST(c,g,r) # Import of c by agent a in region r (mil. $) #;
+  Formula (all,c,COMM)(all,a,ACTS)(all,r,REG)
+    RST_IMPDEST(c,a,r) = VMFB(c,a,r);
+  Formula (all,c,COMM)(all,r,REG)
+    RST_IMPDEST(c,"hh",r) = VMPB(c,r);
+  Formula (all,c,COMM)(all,r,REG)
+    RST_IMPDEST(c,"govt",r) = VMGB(c,r);
+  Formula (all,c,COMM)(all,r,REG)
+    RST_IMPDEST(c,"cgds",r) = VMIB(c,r);
+      
+Coefficient (all,c,COMM)(all,g,RST_AGT)(all,r,REG)
+  RST_shr_IMP(c,g,r) # Share of agent g in imports of c by region r #; 
+  Formula (all,c,COMM)(all,g,RST_AGT)(all,r,REG)
+  RST_shr_IMP(c,g,r) = RST_IMPDEST(c,g,r)/sum{gg,RST_AGT,RST_IMPDEST(c,gg,r)};
+  Write RST_shr_IMP to file CHCK header "SH_M";
+
+
+! For easy of use compute agent shares in region aggregates!
+! - trade at FOB prices!
+Coefficient (all,c,COMM)(all,g,RST_AGT)(all,r,REG) RST_VFOB_a(c,g,r) 
+ # Self-imports of c by agent g in r (fob, mil. $)#;
+  Formula (all,c,COMM)(all,g,RST_AGT)(all,r,REG)  
+    RST_VFOB_a(c,g,r) = RST_shr_IMP(c,g,r) * RST_VFOB_s(c,r);
+    Write RST_VFOB_a to file CHCK header "FOBA";
+    
+! - share in import duties (on top of FOB)!
+Coefficient (all,c,COMM)(all,g,RST_AGT)(all,r,REG) RST_TMM_a(c,g,r) 
+ # Import duties on self-trade of c allocated by agent g in r #;
+  Formula (all,c,COMM)(all,g,RST_AGT)(all,r,REG)
+  RST_TMM_a(c,g,r) = RST_shr_IMP(c,g,r) * RST_TMM_s(c,r);
+  Write RST_TMM_a to file CHCK header "TMMA";
+
+! determine share of own imports in imports sales tax revenue based on regional
+share in imports!
+Coefficient (all,c,COMM)(all,s,REG)(all,d,REG)
+ RST_shr_VMSB(c,s,d) # Share of source region s in imports of c by d #;
+ Formula (all,c,COMM)(all,s,REG)(all,d,REG)
+ RST_shr_VMSB(c,s,d) =  VMSB(c,s,d)/sum{ss,REG,VMSB(c,ss,d)};
+ Write RST_shr_VMSB to file CHCK header "SVMS";
+
+Coefficient (all,c,COMM)(all,g,RST_AGT)(all,r,REG)
+  RST_TSSM(c,g,r) 
+  # Source-generic user-specific tax on self imports of c by g in r (mil. $) #;
+  Formula (all,c,COMM)(all,a,ACTS)(all,r,REG)
+   RST_TSSM(c,a,r) = VMFP(c,a,r)- VMFB(c,a,r);
+  Formula (all,c,COMM)(all,r,REG)
+   RST_TSSM(c,"hh",r) = VMPP(c,r) - VMPB(c,r);
+  Formula (all,c,COMM)(all,r,REG)
+   RST_TSSM(c,"govt",r) = VMGP(c,r) - VMGB(c,r);
+  Formula (all,c,COMM)(all,r,REG)
+   RST_TSSM(c,"cgds",r) = VMIP(c,r) - VMIB(c,r);
+Write RST_TSSM to file CHCK header "TSMM";
+
+! assign amount of sales tox to be moved based on share of own trade!
+Coefficient (all,c,COMM)(all,g,RST_AGT)(all,r,REG) RST_TSSM_a(c,g,r) 
+ #Import sales tax associated with self trade of c by g in r (mil. $)#;
+ Formula (all,c,COMM)(all,g,RST_AGT)(all,r,REG)
+ RST_TSSM_a(c,g,r) = RST_shr_VMSB(c,r,r) * RST_TSSM(c,g,r);
+ Write RST_TSSM_a to file CHCK header "TSMA";
+
+
+! Report the orginal value of the purchases, domestic sales tax by agent as well
+as the additional componnent from export duties and import duties for scenario
+shock
+calculations!
+
+Coefficient (all,c,COMM)(all,g,RST_AGT)(all,r,REG)
+  RST_TSSD_o(c,g,r) 
+  # Domestic sales tax by agent in the original database (mil. $) #;
+  Formula (all,c,COMM)(all,a,ACTS)(all,r,REG)
+   RST_TSSD_o(c,a,r) = VDFP(c,a,r)- VDFB(c,a,r);
+  Formula (all,c,COMM)(all,r,REG)
+   RST_TSSD_o(c,"hh",r) = VDPP(c,r) - VDPB(c,r);
+  Formula (all,c,COMM)(all,r,REG)
+   RST_TSSD_o(c,"govt",r) = VDGP(c,r) - VDGB(c,r);
+  Formula (all,c,COMM)(all,r,REG)
+   RST_TSSD_o(c,"cgds",r) = VDIP(c,r) - VDIB(c,r);
+
+Coefficient (all,c,COMM)(all,g,RST_AGT)(all,r,REG)
+  RST_TSSD_e(c,g,r) 
+   #Export duties on self-trade moved to domestic sales tax by agent (mil. $)#;
+  Formula (all,c,COMM)(all,g,RST_AGT)(all,r,REG)
+  RST_TSSD_e(c,g,r) = RST_shr_IMP(c,g,r) * RST_TEE_s(c,r);
+  
+Coefficient (all,c,COMM)(all,g,RST_AGT)(all,r,REG)
+  RST_TSSD_m(c,g,r) 
+   #Import duties on self-trade moved to domestic sales tax by agent (mil. $)#;
+  Formula (all,c,COMM)(all,g,RST_AGT)(all,r,REG)
+  RST_TSSD_m(c,g,r) = RST_TMM_a(c,g,r) - RST_TSSD_e(c,g,r);
+  
+Coefficient (all,c,COMM)(all,g,RST_AGT)(all,r,REG)
+  RST_TSSD_s(c,g,r) 
+   #Import sales tax on self-trade moved to domestic sales by agent (mil. $)#;
+  Formula (all,c,COMM)(all,g,RST_AGT)(all,r,REG)
+  RST_TSSD_s(c,g,r) = RST_TSSM_a(c,g,r);
+
+Write(set) RST_AGT to file DATA header "AGNT";
+Write RST_TSSD_o to file DATA header "TSDO";
+Write RST_TSSD_e to file DATA header "TSDE";
+Write RST_TSSD_m to file DATA header "TSDM";
+Write RST_TSSD_s to file DATA header "TSDS";
+
+!Compute the orginal domestic sales tax rate!
+Coefficient (all,c,COMM)(all,g,RST_AGT)(all,r,REG)
+  RST_VDB(c,g,r) 
+  # Domestic sales by agent at basic prices (mil. $) #;
+  Formula (all,c,COMM)(all,a,ACTS)(all,r,REG)
+   RST_VDB(c,a,r) =  VDFB(c,a,r);
+  Formula (all,c,COMM)(all,r,REG)
+   RST_VDB(c,"hh",r) =  VDPB(c,r);
+  Formula (all,c,COMM)(all,r,REG)
+   RST_VDB(c,"govt",r) = VDGB(c,r);
+  Formula (all,c,COMM)(all,r,REG)
+   RST_VDB(c,"cgds",r) = VDIB(c,r);
+
+!Domestic sales tax - in orginal database!
+Coefficient (all,c,COMM)(all,g,RST_AGT)(all,r,REG)
+  RST_r_TSSD_o(c,g,r) 
+  # Domestic sales tax rate by agent in original database (%)#;
+  Formula (all,c,COMM)(all,g,RST_AGT)(all,r,REG)
+  RST_r_TSSD_o(c,g,r) = 100*[RST_TSSD_o(c,g,r) / RST_VDB(c,g,r)];
+  Write RST_r_TSSD_o to file DATA header "RTDO";
+
+!EndRegion!
+
+!Region Proportionality assumption to redistribute global margins on self-trade!
+
+!Margin commodities are now consumed directly as transport services; since no
+tariffs on margins no tariffs on these transport services which may alter the
+tax rates!
+
+! Compute adjustment needed in VST to get it back in line with margins on
+  removed internal trade!
+  
+Coefficient (all,m,MARG)(all,r,REG) RST_shr_VST(m,r) 
+# Share of each region r in total margin supply (global pool)#;
+ Formula (all,m,MARG)(all,r,REG)
+   RST_shr_VST(m,r) = VST(m,r)/sum{rr,REG,VST(m,rr)};
+Write RST_shr_VST to file CHCK header "sVST";
+
+! Compute increase in export of transport services based on removed internal
+trade flows and agent shares!
+
+! Compute agent's share in transport margins self-trade by commodity!
+Coefficient (all,c,COMM)(all,m,MARG)(all,g,RST_AGT)(all,r,REG)
+RST_VTWR_a(c,m,g,r) 
+ # Allocate margins to agents based on import shares (mil. $)#;
+ Formula (all,c,COMM)(all,m,MARG)(all,g,RST_AGT)(all,r,REG)
+ RST_VTWR_a(c,m,g,r) = RST_shr_IMP(c,g,r)*RST_VTMFSD_s(c,m,r);
+ Write RST_VTWR_a to file CHCK header "VTWA";
+
+!Supply of transport to self becomes domestic use; rest becomes bilateral  trade
+(with no tariffs)!
+Coefficient (all,m,MARG)(all,g,RST_AGT)(all,s,REG)(all,r,REG)
+RST_TTRANS_a(m,g,s,r) 
+# Additional bilateral trade in transport services  (mil. $)#;
+ Formula (all,m,MARG)(all,g,RST_AGT)(all,s,REG)(all,r,REG)
+   RST_TTRANS_a(m,g,s,r) = RST_shr_VST(m,s)*sum{c,COMM,RST_VTWR_a(c,m,g,r)};
+ Formula (all,m,MARG)(all,g,RST_AGT)(all,r,REG)
+   RST_TTRANS_a(m,g,r,r) = 0;  
+ Write RST_TTRANS_a to file CHCK header "TRST";
+
+Coefficient (all,m,MARG)(all,g,RST_AGT)(all,r,REG) RST_DTRANS_a(m,g,r) 
+  # Additional domestic use of transport from margins (mil. $)#;
+ Formula (all,m,MARG)(all,g,RST_AGT)(all,r,REG)
+ RST_DTRANS_a(m,g,r) = RST_shr_VST(m,r)*sum{c,COMM,RST_VTWR_a(c,m,g,r)};
+Write RST_DTRANS_a to file CHCK header "TRSD"; 
+
+!EndRegion!
+
+!EndRegion!
+
+
+! Step 3: Remove trade (FOB) and import duties (TMM) linked to self-trade from
+from total imports and from imports by agent. The trade flows (FOB) are then
+added to domestic demand (d_) while the import duties are added to the domestic
+sales tax (tssd_). !
+
+!Region Step 3: Trade (FOB) & duties (TMM) to sectors & final domestic demand!
+  
+ !Remove self trade (FOB) & associated imoprt duties from imports by agent!
+Formula (all,c,COMM)(all,a,ACTS)(all,r,REG)
+ VMFB(c,a,r) = VMFB(c,a,r) - RST_VFOB_a(c,a,r) - RST_TMM_a(c,a,r);
+Formula (all,c,COMM)(all,r,REG)
+ VMPB(c,r) = VMPB(c,r) - RST_VFOB_a(c,"hh",r)- RST_TMM_a(c,"hh",r);
+Formula (all,c,COMM)(all,r,REG)
+ VMGB(c,r) = VMGB(c,r) - RST_VFOB_a(c,"govt",r)- RST_TMM_a(c,"govt",r);
+Formula (all,c,COMM)(all,r,REG)
+ VMIB(c,r) = VMIB(c,r) - RST_VFOB_a(c,"cgds",r)- RST_TMM_a(c,"cgds",r);
+
+! Deduct trade & duties from self trade at producer prices!
+Formula (all,c,COMM)(all,a,ACTS)(all,r,REG)
+ VMFP(c,a,r) = VMFP(c,a,r)-RST_VFOB_a(c,a,r)-RST_TMM_a(c,a,r);
+Formula (all,c,COMM)(all,r,REG)
+ VMPP(c,r) = VMPP(c,r)-RST_VFOB_a(c,"hh",r)-RST_TMM_a(c,"hh",r);
+Formula (all,c,COMM)(all,r,REG)
+ VMGP(c,r) = VMGP(c,r)-RST_VFOB_a(c,"govt",r)-RST_TMM_a(c,"govt",r);
+Formula (all,c,COMM)(all,r,REG)
+ VMIP(c,r) = VMIP(c,r)-RST_VFOB_a(c,"cgds",r)-RST_TMM_a(c,"cgds",r);
+
+! Add self trade (at FOB) to domestic agent demand at basic prices !
+Formula (all,c,COMM)(all,a,ACTS)(all,r,REG)
+ VDFB(c,a,r) = VDFB(c,a,r) + RST_VFOB_a(c,a,r);
+Formula (all,c,COMM)(all,r,REG)
+ VDPB(c,r) = VDPB(c,r) + RST_VFOB_a(c,"hh",r);
+Formula (all,c,COMM)(all,r,REG)
+ VDGB(c,r) = VDGB(c,r) + RST_VFOB_a(c,"govt",r);
+Formula (all,c,COMM)(all,r,REG)
+ VDIB(c,r) = VDIB(c,r) + RST_VFOB_a(c,"cgds",r);
+
+!Add self trade and import duties to agent demand at producer prices !
+Formula (all,c,COMM)(all,a,ACTS)(all,r,REG)
+ VDFP(c,a,r) = VDFP(c,a,r) + RST_VFOB_a(c,a,r) + RST_TMM_a(c,a,r);
+Formula (all,c,COMM)(all,r,REG)
+ VDPP(c,r) = VDPP(c,r) + RST_VFOB_a(c,"hh",r) + RST_TMM_a(c,"hh",r);
+Formula (all,c,COMM)(all,r,REG)
+ VDGP(c,r) = VDGP(c,r) + RST_VFOB_a(c,"govt",r) + RST_TMM_a(c,"govt",r);
+Formula (all,c,COMM)(all,r,REG)
+ VDIP(c,r) = VDIP(c,r) + RST_VFOB_a(c,"cgds",r) + RST_TMM_a(c,"cgds",r);
+ 
+! Remove trade with self & associated duties!
+Formula (all,c,COMM)(all,r,REG)
+ VMSB(c,r,r) = VMSB(c,r,r) - VFOB(c,r,r) - sum{g,RST_AGT, RST_TMM_a(c,g,r)};
+Formula (all,c,COMM)(all,r,REG)
+ VCIF(c,r,r)= VMSB(c,r,r);
+Formula (all,c,COMM)(all,r,REG)
+ VFOB(c,r,r)=0;
+Formula (all,c,COMM)(all,r,REG) 
+ VXSB(c,r,r)= VFOB(c,r,r);
+  
+!EndRegion!
+
+
+!Step 4: Adjust agent's accounts by moving the import sales tax own trade
+(RST_TSSM_) to domestic sales taxes (tssd_)!
+
+!Region Step 4: Move import sales tax on own trade to domestic sales tax!
+
+! Deduct agent-specifc import sales tax from import taxes!
+Formula (all,c,COMM)(all,a,ACTS)(all,r,REG)
+ VMFP(c,a,r) = VMFP(c,a,r) - RST_TSSM_a(c,a,r);
+Formula (all,c,COMM)(all,r,REG)
+ VMPP(c,r) = VMPP(c,r) - RST_TSSM_a(c,"hh",r);
+Formula (all,c,COMM)(all,r,REG)
+ VMGP(c,r) = VMGP(c,r) - RST_TSSM_a(c,"govt",r);
+Formula (all,c,COMM)(all,r,REG)
+ VMIP(c,r) = VMIP(c,r) - RST_TSSM_a(c,"cgds",r);
+
+! Add agent-specifc import sales tax to domestic taxes!
+Formula (all,c,COMM)(all,a,ACTS)(all,r,REG)
+ VDFP(c,a,r) = VDFP(c,a,r) + RST_TSSM_a(c,a,r);
+Formula (all,c,COMM)(all,r,REG)
+ VDPP(c,r) = VDPP(c,r) + RST_TSSM_a(c,"hh",r);
+Formula (all,c,COMM)(all,r,REG)
+ VDGP(c,r) = VDGP(c,r) + RST_TSSM_a(c,"govt",r);
+Formula (all,c,COMM)(all,r,REG)
+ VDIP(c,r) = VDIP(c,r) + RST_TSSM_a(c,"cgds",r);
+
+!EndRegion!
+
+
+! Step 5: Move demand for margins to imports of transport services by agents. WE
+use regional propoortionality to determine source of imports of transport
+services. Supply of transport services to the global pool is adjusted
+accordingly.!
+
+!Region Step 5: Move margins to direct demand for transport services!
+
+! Remove trade margins on self-imports from import account!
+Formula (all,m,MARG)(all,c,COMM)(all,r,REG)
+ VTMFSD(m,c,r,r)=0;
+! Then all self-trade is removed from bilateral flows!
+Formula (all,c,COMM)(all,r,REG)
+ VMSB(c,r,r) = 0;
+Formula (all,c,COMM)(all,r,REG)
+ VCIF(c,r,r)= 0;
+
+! Remove transport margins self-trade from agent imports (basic prices)!
+Formula (all,c,COMM)(all,a,ACTS)(all,r,REG)
+ VMFB(c,a,r) = VMFB(c,a,r) - sum{m,MARG, RST_VTWR_a(c,m,a,r)};
+Formula (all,c,COMM)(all,r,REG)
+ VMPB(c,r) = VMPB(c,r) - sum{m,MARG, RST_VTWR_a(c,m,"hh",r)};
+Formula (all,c,COMM)(all,r,REG)
+ VMGB(c,r) = VMGB(c,r) - sum{m,MARG, RST_VTWR_a(c,m,"govt",r)}; 
+Formula (all,c,COMM)(all,r,REG)
+ VMIB(c,r) = VMIB(c,r) - sum{m,MARG, RST_VTWR_a(c,m,"cgds",r)};
+
+! Remove transport margins self-trade from agent imports (producer prices)!
+Formula (all,c,COMM)(all,a,ACTS)(all,r,REG)
+ VMFP(c,a,r) = VMFP(c,a,r) - sum{m,MARG, RST_VTWR_a(c,m,a,r)};
+Formula (all,c,COMM)(all,r,REG)
+ VMPP(c,r) = VMPP(c,r) - sum{m,MARG, RST_VTWR_a(c,m,"hh",r)};
+Formula (all,c,COMM)(all,r,REG)
+ VMGP(c,r) = VMGP(c,r) - sum{m,MARG, RST_VTWR_a(c,m,"govt",r)}; 
+Formula (all,c,COMM)(all,r,REG)
+ VMIP(c,r) = VMIP(c,r) - sum{m,MARG, RST_VTWR_a(c,m,"cgds",r)};
+
+! Add margins from other regions on self trade to imports of margin commodities
+(basic prices) !
+Formula (all,m,MARG)(all,a,ACTS)(all,r,REG)
+ VMFB(m,a,r)= VMFB(m,a,r) + sum{s,REG, RST_TTRANS_a(m,a,s,r)};
+Formula (all,m,MARG)(all,r,REG)
+ VMPB(m,r)= VMPB(m,r) + sum{s,REG, RST_TTRANS_a(m,"hh",s,r)};
+Formula (all,m,MARG)(all,r,REG)
+ VMGB(m,r)= VMGB(m,r) + sum{s,REG, RST_TTRANS_a(m,"govt",s,r)};
+Formula (all,m,MARG)(all,r,REG)
+ VMIB(m,r)= VMIB(m,r) + sum{s,REG, RST_TTRANS_a(m,"cgds",s,r)};
+
+! Add margins from other regions to imports of margin commodities (producer
+prices) !
+Formula (all,m,MARG)(all,a,ACTS)(all,r,REG)
+ VMFP(m,a,r)= VMFP(m,a,r) + sum{s,REG, RST_TTRANS_a(m,a,s,r)};
+Formula (all,m,MARG)(all,r,REG)
+ VMPP(m,r)= VMPP(m,r) + sum{s,REG, RST_TTRANS_a(m,"hh",s,r)};
+Formula (all,m,MARG)(all,r,REG)
+ VMGP(m,r)= VMGP(m,r) + sum{s,REG, RST_TTRANS_a(m,"govt",s,r)};
+Formula (all,m,MARG)(all,r,REG)
+ VMIP(m,r)= VMIP(m,r) + sum{s,REG, RST_TTRANS_a(m,"cgds",s,r)};
+
+! Add self-trade in margins to domestic demand for margins (basic prices)!
+Formula (all,m,MARG)(all,a,ACTS)(all,r,REG)
+ VDFB(m,a,r)= VDFB(m,a,r) + RST_DTRANS_a(m,a,r);
+Formula (all,m,MARG)(all,r,REG)
+ VDPB(m,r)= VDPB(m,r) + RST_DTRANS_a(m,"hh",r);
+Formula (all,m,MARG)(all,r,REG)
+ VDGB(m,r)= VDGB(m,r) + RST_DTRANS_a(m,"govt",r);
+Formula (all,m,MARG)(all,r,REG)
+ VDIB(m,r)= VDIB(m,r) + RST_DTRANS_a(m,"cgds",r);
+
+! Add self-trade in margins to domestic demand for margins (producer prices)!
+Formula (all,m,MARG)(all,a,ACTS)(all,r,REG)
+ VDFP(m,a,r)= VDFP(m,a,r) + RST_DTRANS_a(m,a,r);
+Formula (all,m,MARG)(all,r,REG)
+ VDPP(m,r)= VDPP(m,r) + RST_DTRANS_a(m,"hh",r);
+Formula (all,m,MARG)(all,r,REG)
+ VDGP(m,r)= VDGP(m,r) + RST_DTRANS_a(m,"govt",r);
+Formula (all,m,MARG)(all,r,REG)
+ VDIP(m,r)= VDIP(m,r) + RST_DTRANS_a(m,"cgds",r);
+
+! Deduct the transport margins now directly demanded by domestic agents from the
+  deliveries to the global pool!
+Formula (all,m,MARG)(all,r,REG)
+ VST(m,r) = VST(m,r) - sum{g,RST_AGT, RST_DTRANS_a(m,g,r)};
+ 
+! Add the additional demand for transport services to imports!
+Formula (all,m,MARG)(all,s,REG)(all,r,REG)
+ VFOB(m,s,r) = VFOB(m,s,r) + sum{g,RST_AGT,RST_TTRANS_a(m,g,s,r)};
+Formula (all,m,MARG)(all,s,REG)(all,r,REG)
+ VXSB(m,s,r) = VXSB(m,s,r) + sum{g,RST_AGT,RST_TTRANS_a(m,g,s,r)};
+Formula (all,m,MARG)(all,s,REG)(all,r,REG)
+ VCIF(m,s,r) = VCIF(m,s,r) + sum{g,RST_AGT,RST_TTRANS_a(m,g,s,r)};
+Formula (all,m,MARG)(all,s,REG)(all,r,REG)
+ VMSB(m,s,r) = VMSB(m,s,r) + sum{g,RST_AGT,RST_TTRANS_a(m,g,s,r)};
+
+!Remove the additional direct demand for transport services from the supply to
+the global pool!
+Formula (all,m,MARG)(all,r,REG)
+ VST(m,r) = VST(m,r) - sum{d,REG, sum{g,RST_AGT,RST_TTRANS_a(m,g,r,d)}};
+
+! Check that global trade in margins is balanced!
+Coefficient (all,m,MARG)
+ RST_chk_PVST(m) # Check if supply = demand for global margin pool #; 
+Formula (all,m,MARG)
+ RST_chk_PVST(m) = sum{r,REG, VST(m,r)} 
+             - sum{s,REG, sum{d,REG,sum{c,COMM, VTMFSD(m,c,s,d)}}};
+ Write RST_chk_PVST to file CHCK header "PVST";
+ 
+!EndRegion!
+
+!Region Check computation of domestic sales tax components!
+
+Coefficient (all,c,COMM)(all,g,RST_AGT)(all,r,REG)
+  RST_TSSD_f(c,g,r) 
+  # Domestic sales tax by agent in after adjustment (mil. $)#;
+  Formula (all,c,COMM)(all,a,ACTS)(all,r,REG)
+   RST_TSSD_f(c,a,r) = VDFP(c,a,r)- VDFB(c,a,r);
+  Formula (all,c,COMM)(all,r,REG)
+   RST_TSSD_f(c,"hh",r) = VDPP(c,r) - VDPB(c,r);
+  Formula (all,c,COMM)(all,r,REG)
+   RST_TSSD_f(c,"govt",r) = VDGP(c,r) - VDGB(c,r);
+  Formula (all,c,COMM)(all,r,REG)
+   RST_TSSD_f(c,"cgds",r) = VDIP(c,r) - VDIB(c,r);
+   Write RST_TSSD_f to file CHCK header "TSDF";
+
+! Check that matches decompostion!
+Coefficient (all,c,COMM)(all,g,RST_AGT)(all,r,REG)
+  RST_chkTSSDf(c,g,r) 
+  # Check decomposition of the domestic sales tax by agent (close to 0)#;
+  Formula (all,c,COMM)(all,g,RST_AGT)(all,r,REG)
+  RST_chkTSSDf(c,g,r) =  RST_TSSD_f(c,g,r) - 
+  [RST_TSSD_o(c,g,r) + RST_TSSD_e(c,g,r) + RST_TSSD_m(c,g,r) +
+RST_TSSD_s(c,g,r)];
+  Write RST_chkTSSDf to file CHCK header "C_TD";
+
+!recompute domestic sales tax rate after adjustments!
+Coefficient (all,c,COMM)(all,g,RST_AGT)(all,r,REG)
+  RST_TSSD_n(c,g,r) 
+  # Domestic sales tax by agent in the new database (mil. $) #;
+  Formula (all,c,COMM)(all,a,ACTS)(all,r,REG)
+   RST_TSSD_n(c,a,r) = VDFP(c,a,r)- VDFB(c,a,r);
+  Formula (all,c,COMM)(all,r,REG)
+   RST_TSSD_n(c,"hh",r) = VDPP(c,r) - VDPB(c,r);
+  Formula (all,c,COMM)(all,r,REG)
+   RST_TSSD_n(c,"govt",r) = VDGP(c,r) - VDGB(c,r);
+  Formula (all,c,COMM)(all,r,REG)
+   RST_TSSD_n(c,"cgds",r) = VDIP(c,r) - VDIB(c,r);
+   
+  Formula (all,c,COMM)(all,a,ACTS)(all,r,REG)
+   RST_VDB(c,a,r) =  VDFB(c,a,r);
+  Formula (all,c,COMM)(all,r,REG)
+   RST_VDB(c,"hh",r) =  VDPB(c,r);
+  Formula (all,c,COMM)(all,r,REG)
+   RST_VDB(c,"govt",r) = VDGB(c,r);
+  Formula (all,c,COMM)(all,r,REG)
+   RST_VDB(c,"cgds",r) = VDIB(c,r);
+
+!Domestic sales tax - in new database!
+Coefficient (all,c,COMM)(all,g,RST_AGT)(all,r,REG)
+  RST_r_TSSD_n(c,g,r) 
+  # Domestic sales tax rate by agent in new database (%) #;
+  Formula (all,c,COMM)(all,g,RST_AGT)(all,r,REG)
+  RST_r_TSSD_n(c,g,r) = 100*[RST_TSSD_n(c,g,r) / RST_VDB(c,g,r)];
+  Write RST_r_TSSD_n to file DATA header "RTDN";
+    
+!EndRegion!
+
+Zerodivide off;
+
+! == Writing headers to new BaseData file!
+!============================================================================
+  File      : RST_WriteData.gmp
+  Remarks   : Only headers used by the model are written or transferred. 
+              The original BaseData contains various headers with tariff detail 
+              not read by the standard GTAP model. Write statements are explicit
+              to avoid transferring (new) headers that may need adjustment for
+              self-trade.
+ =============================================================================!
+
+Transfer "DREL" from file GTAPDATA to file DATA;
+Transfer "DVER" from file GTAPDATA to file DATA;
+Write VDFB to file DATA header "VDFB";
+Write VMFB to file DATA header "VMFB";
+Write VDFP to file DATA header "VDFP";
+Write VMFP to file DATA header "VMFP";
+Transfer "EVOS" from file GTAPDATA to file DATA;
+Transfer "EVFB" from file GTAPDATA to file DATA;
+Transfer "EVFP" from file GTAPDATA to file DATA;
+Transfer "MAKS" from file GTAPDATA to file DATA;
+Transfer "MAKB" from file GTAPDATA to file DATA;
+Write VDGB to file DATA header "VDGB";
+Write VMGB to file DATA header "VMGB";
+Write VDGP to file DATA header "VDGP";
+Write VMGP to file DATA header "VMGP";
+Write VDPB to file DATA header "VDPB";
+Write VMPB to file DATA header "VMPB";
+Write VDPP to file DATA header "VDPP";
+Write VMPP to file DATA header "VMPP";
+Write VDIB to file DATA header "VDIB";
+Write VMIB	to file DATA header "VMIB";
+Write VDIP to file DATA header "VDIP";
+Write VMIP to file DATA header "VMIP";
+Transfer "SAVE" from file GTAPDATA to file DATA;
+Transfer "VDEP" from file GTAPDATA to file DATA;
+Write VXSB to file DATA header "VXSB";
+Write VFOB to file DATA header "VFOB";
+Write VCIF to file DATA header "VCIF";
+Write VMSB to file DATA header "VMSB";
+Write VST to file DATA header "VST";
+Transfer "DPSM" from file GTAPDATA to file DATA;
+Write VTMFSD to file DATA header "VTWR";
+Transfer "VKB" from file GTAPDATA to file DATA;
+

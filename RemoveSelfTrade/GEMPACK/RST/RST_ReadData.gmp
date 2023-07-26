@@ -1,0 +1,95 @@
+!============================================================================
+  File      : RST_ReadData.gmp
+  Remarks   : Read standard GTAP headers that will need to be adjusted for
+              removing self-trade
+ =============================================================================!
+
+!Region Intermediate demand!
+Coefficient (ge 0)(all,c,COMM)(all,a,ACTS)(all,r,REG)
+  VMFP(c,a,r) # expenditure on imp. c by act. a in r at producer prices #;
+  Read VMFP from file GTAPDATA header "VMFP";
+Coefficient (ge 0)(all,c,COMM)(all,a,ACTS)(all,r,REG)
+  VMFB(c,a,r) # expenditure on imported c by act. a in r at basic prices #;
+  Read VMFB from file GTAPDATA header "VMFB";
+Coefficient (ge 0)(all,c,COMM)(all,a,ACTS)(all,r,REG)
+  VDFP(c,a,r) # expenditure on dom. c by act. a in r at producer prices #;
+  Read VDFP from file GTAPDATA header "VDFP";  
+Coefficient (ge 0)(all,c,COMM)(all,a,ACTS)(all,r,REG)
+  VDFB(c,a,r) # expenditure on domestic c by act. a in r at basic prices #;
+  Read VDFB from file GTAPDATA header "VDFB";
+!EndRegion!
+
+!Region Private demand!
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+  VMPB(c,r) # private household expenditure on imp. c in r at basic prices #;
+  Read VMPB from file GTAPDATA header "VMPB";  
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+  VMPP(c,r) # private hhld expenditure on imp. c in r at producer prices #;
+  Read VMPP from file GTAPDATA header "VMPP";  
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+  VDPP(c,r) # private hhld expenditure on dom. c in r at producer prices #; 
+  Read VDPP from file GTAPDATA header "VDPP";
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+  VDPB(c,r) # private household expenditure on dom. c in r at basic prices #;
+  Read VDPB from file GTAPDATA header "VDPB";
+!EndRegion!
+
+!Region Government demand!
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+  VMGP(c,r) # government expenditure on imp. c in r at producer prices #;
+  Read VMGP from file GTAPDATA header "VMGP";
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+  VMGB(c,r) # government expenditure on imported c in r at basic prices #;
+  Read VMGB from file GTAPDATA header "VMGB";
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+  VDGP(c,r) # government expenditure on dom. c in r at producer prices #;
+  Read VDGP from file GTAPDATA header "VDGP";
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+  VDGB(c,r) # government expenditure on domestic c in r at basic prices #;
+  Read VDGB from file GTAPDATA header "VDGB";
+!EndRegion!
+
+!Region Investment demand!
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+  VDIP(c,r) # investment expenditure on dom. c in r at producer prices #; 
+  Read VDIP from file GTAPDATA header "VDIP";
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+  VMIP(c,r) # investment expenditure on imp. c in r at producer prices #;
+  Read VMIP from file GTAPDATA header "VMIP";
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+  VMIB(c,r) # investment expenditure on imported c in r at basic prices #;
+  Read VMIB from file GTAPDATA header "VMIB";
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+  VDIB(c,r) # investment expenditure on domestic c in r at basic prices #;
+  Read VDIB from file GTAPDATA header "VDIB";  
+!EndRegion!  
+
+!Region Bilateral trade flows!
+Coefficient (ge 0)(all,c,COMM)(all,s,REG)(all,d,REG)
+  VFOB(c,s,d) 
+  # value of exports of c from s to d at FOB prices (tradeables only) #;
+  Read VFOB from file GTAPDATA header "VFOB";
+Coefficient (ge 0)(all,c,COMM)(all,s,REG)(all,d,REG)
+  VCIF(c,s,d) 
+  # value of imports of c from s to d at CIF prices (tradeables only) #;
+  Read VCIF from file GTAPDATA header "VCIF";
+Coefficient (ge 0)(all,c,COMM)(all,s,REG)(all,d,REG)
+  VMSB(c,s,d) 
+  # value of imports of c from s to d at domestic (basic) prices #;
+  Read VMSB from file GTAPDATA header "VMSB";
+Coefficient (ge 0)(all,c,COMM)(all,s,REG)(all,d,REG)
+  VXSB(c,s,d) 
+  # value of exports of  c from s to d at basic prices (tradeables only) #;
+  Read VXSB from file GTAPDATA header "VXSB";
+!EndRegion!
+
+!Region Trade margins!
+Coefficient (ge 0) (all,m,MARG)(all,c,COMM)(all,s,REG)(all,d,REG)
+  VTMFSD(m,c,s,d)
+  # int'l margin usage, by margin, freight, source, and destination #;
+  Read VTMFSD from file GTAPDATA header "VTWR";
+Coefficient (ge 0)(all,m,MARG)(all,r,REG)
+  VST(m,r) 
+  # value of exports of margin m from r for int'l transport at basic prices #;
+  Read VST from file GTAPDATA header "VST";
+ !EndRegion!
