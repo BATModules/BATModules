@@ -1,4 +1,5 @@
-![BATModel_logoround](https://github.com/BATModules/BATModules/blob/main/images/BATModel_logo_round.png) 
+![BATModel_logoround](https://github.com/BATModules/BATModules/blob/main/images/BATModel_logo_round_small.png)
+
 # Remove self-trade from aggregated GTAP regions
 *Modular code for enhancement of trade analysis with simulation models in GAMS or GEMPACK developed by Marijke Kuiper (Wageningen Economic Research)*
 
