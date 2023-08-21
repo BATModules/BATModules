@@ -4,7 +4,7 @@
 --- PURPOSE
 Derives quantities that get as close as possible to the quantities from a
 standard GTAP database by removing taxes and transport margins that affect the
-alloaction of material flows over destinations. These coeffiicents can be linked
+alloaction of material flows over destinations. These coefficients can be linked
 to stanadrd GTAP v7 model variables to update them in model simulations.
 Post-simulation material balances can be computed to check the consistency of
 the quantity estimates when tracing impacts through global supply chains.

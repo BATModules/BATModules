@@ -1,0 +1,30 @@
+!============================================================================
+  File      : MBL_ModelVariables.gmp
+  Remarks   : Model variables needed to update the quantity coefficients
+ =============================================================================!
+
+Variable 
+(all,c,COMM)(all,a,ACTS)(all,r,REG)
+  qca(c,a,r) #Supply of commodity c by activity a in r#;
+(all,c,COMM)(all,a,ACTS)(all,r,REG)
+  qfd(c,a,r) #Demand for domestic commodity c by activity a in region r#;
+(all,c,COMM)(all,a,ACTS)(all,d,REG)
+  qfm(c,a,d)#Imported commodity c for use by activity a in region r#;
+(all,c,COMM)(all,r,REG)
+  qpd(c,r) #Private household demand for domestic commodity c in region r#;
+(all,c,COMM)(all,d,REG)
+  qpm(c,d) #Private household demand for imported commodity c in region d#;
+(all,c,COMM)(all,r,REG)
+  qgd(c,r) #Government demand for domestic commodity c in region r#;
+(all,c,COMM)(all,d,REG)
+  qgm(c,d) #Government demand for imported commodity c in region d #;
+(all,c,COMM)(all,r,REG)
+  qid(c,r) #Investment demand for domestic commodity c in region r #;
+(all,c,COMM)(all,d,REG)
+  qim(c,d) #Investment demand for imported commodity c in region r#;
+(all,c,COMM)(all,r,REG)(all,d,REG)
+  qxs(c,r,d) #Export sales of commodity c from source r to destination d#;
+(all,m,MARG)(all,r,REG)
+  qst(m,r) #Supply of margin m from region r for international transport#; 
+(all,m,MARG)(all,c,COMM)(all,r,REG)(all,d,REG)
+  qtmfsd(m,c,r,d) #International usage margin m on c from r to d#;

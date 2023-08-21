@@ -1,0 +1,16 @@
+!============================================================================
+  File      : MBL_SetsMaps.gmp
+  Remarks   : Standard GTAP sets
+ =============================================================================!
+
+Set REG # Regions in the model #
+  Read elements from file GTAPSETS header "REG";
+Set COMM # Traded commodities (including split sectors) #
+  Read elements from file GTAPSETS header "COMM";
+Set MARG # margin commodities #
+    read elements from file GTAPSETS header "MARG";
+Subset MARG is subset of COMM;
+Set NMARG # non-margin commodities # = COMM - MARG;   
+Set ACTS # Sectors producing traded commodities #
+  Read elements from file GTAPSETS header "ACTS";
+  Subset ACTS is subset of COMM;

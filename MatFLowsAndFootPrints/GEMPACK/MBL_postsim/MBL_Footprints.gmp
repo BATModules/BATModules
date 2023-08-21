@@ -10,12 +10,12 @@
 Postsim (end);
 
 Coefficient (parameter)(all,n,FPRNT_A)(all,a,ACTS)(all,p,REG) 
-  A_FPRINT(n,a,p)  # Activity level footprints (various units) #;
-  Read (IfHeaderExists) A_FPRINT from file ACTDAT header "A_FP";
+  MBL_A_FPRINT(n,a,p)  # Activity level footprints (various units) #;
+  Read (IfHeaderExists) MBL_A_FPRINT from file ACTDAT header "A_FP";
  
 Coefficient (parameter) (all,n,FPRNT_I)(all,k,COMM)(all,a,ACTS)(all,p,REG) 
-  I_FPRINT(n,k,a,p)  # Intermediate input level footprints (various units) #;
-  Read (IfHeaderExists) I_FPRINT from file ACTDAT header "I_FP";
+  MBL_I_FPRINT(n,k,a,p) #Intermediate input level footprints (various units) #;
+  Read (IfHeaderExists) MBL_I_FPRINT from file ACTDAT header "I_FP";
 
 Postsim (begin);
   
@@ -24,52 +24,50 @@ Postsim (begin);
 ! Combine footprint data in single header!
 ! - To avoid double counting of activity level footprint data we assign these to
     the first commodity which is then summed away!
-Set ONECOMM = (all,k,COMM: $pos(k)=1);
+Set MBL_ONECOMM = (all,k,COMM: $pos(k)=1);
 
 Coefficient (all,n,FPRNT)(all,i,COMM)(all,p,REG)(all,g,CHNL)(all,s,REG)
-  (all,t,FDCAT)(all,d,REG)  FOOTP_RAW(n,i,p,g,s,t,d) 
+  (all,t,FDCAT)(all,d,REG)  MBL_FOOTP_RW(n,i,p,g,s,t,d) 
 #Footprint n for i produced in p by channel in s and final demand cat t in d#;
 Formula (all,n,FPRNT)(all,i,COMM)(all,p,REG)(all,g,CHNL)(all,s,REG)
   (all,t,FDCAT)(all,d,REG)  
-   FOOTP_RAW(n,i,p,g,s,t,d) = 0;
+   MBL_FOOTP_RW(n,i,p,g,s,t,d) = 0;
 
 !  - Assign activity footprints to produced commodities!
 Formula (all,n,FPRNT_A)(all,i,COMM)(all,p,REG)(all,g,CHNL)(all,s,REG)
-  (all,t,FDCAT)(all,d,REG) FOOTP_RAW(n,i,p,g,s,t,d) = 
+  (all,t,FDCAT)(all,d,REG) MBL_FOOTP_RW(n,i,p,g,s,t,d) = 
   ! aggregate commodities to channels!
   sum{c,COMM:COMM2CHNL(c) eq g,
   ! aggregate final dmand to final demand categories !
   sum{f,FDEM:FDEM2FDCAT(f) eq t,
   !share of i in consumption by final demand category!
-  FD_shr(i,p,c,s,f,d) * 
+  MBL_FD_shr(i,p,c,s,f,d) * 
   ! footptints by activity allocated to produced commodities!
-  [sum{a,ACTS, sum{k,ONECOMM, COMM_SHR(i,k,a,p) * A_FPRINT(n,a,p)}}]}};
+  [sum{a,ACTS, sum{k,MBL_ONECOMM, MBL_COMM_SHR(i,k,a,p) * MBL_A_FPRINT(n,a,p)}}]}};
 
 !  - Assign intermediate input footprints to produced commodities!
 Formula (all,n,FPRNT_I)(all,i,COMM)(all,p,REG)(all,g,CHNL)(all,s,REG)
-  (all,t,FDCAT)(all,d,REG) FOOTP_RAW(n,i,p,g,s,t,d) = 
+  (all,t,FDCAT)(all,d,REG) MBL_FOOTP_RW(n,i,p,g,s,t,d) = 
   ! aggregate commodities to channels!
   sum{c,COMM:COMM2CHNL(c) eq g,
   ! aggregate final dmand to final demand categories !
   sum{f,FDEM:FDEM2FDCAT(f) eq t,
   !share of i in consumption by final demand category!
-  FD_shr(i,p,c,s,f,d) * 
+  MBL_FD_shr(i,p,c,s,f,d) * 
   ! footptints by intermediate inputs allocated to produced commodities!
-  [sum{a,ACTS, sum{k,COMM, COMM_SHR(i,k,a,p) * I_FPRINT(n,k,a,p)}}]}};
+  [sum{a,ACTS, sum{k,COMM, MBL_COMM_SHR(i,k,a,p) * MBL_I_FPRINT(n,k,a,p)}}]}};
   
             
 ! --- Define produced commodities with footprint data!
-Set FPCOMM # Produced commodities with footprint data #
+Set MBL_FPCOMM # Produced commodities with footprint data #
     =(all,i,COMM:sum{n,FPRNT, sum{p,REG, sum{g,CHNL, sum{s,REG, sum{t,FDCAT,
-                 sum{d,REG, FOOTP_RAW(n,i,p,g,s,t,d)}}}}}} <> 0);
+                 sum{d,REG, MBL_FOOTP_RW(n,i,p,g,s,t,d)}}}}}} <> 0);
 
 ! --- Apply filter to remove commodities in i with no footprint data!
-Coefficient (all,n,FPRNT)(all,i,FPCOMM )(all,p,REG)(all,g,CHNL)(all,s,REG)
-  (all,t,FDCAT)(all,d,REG)  FOOTP_FD(n,i,p,g,s,t,d) 
+Coefficient (all,n,FPRNT)(all,i,MBL_FPCOMM)(all,p,REG)(all,g,CHNL)(all,s,REG)
+  (all,t,FDCAT)(all,d,REG)  MBL_FOOTP_FD(n,i,p,g,s,t,d) 
 #Footprint n of i produced in p by channel g in s and final demand cat t in d#;
-Formula (all,n,FPRNT)(all,i,FPCOMM )(all,p,REG)(all,g,CHNL)(all,s,REG)
+Formula (all,n,FPRNT)(all,i,MBL_FPCOMM)(all,p,REG)(all,g,CHNL)(all,s,REG)
   (all,t,FDCAT)(all,d,REG)  
-   FOOTP_FD(n,i,p,g,s,t,d) = FOOTP_RAW(n,i,p,g,s,t,d);
+   MBL_FOOTP_FD(n,i,p,g,s,t,d) = MBL_FOOTP_RW(n,i,p,g,s,t,d);
    
-! === Write footprint data!
-Write FOOTP_FD to file FOOTP header "FPFD";

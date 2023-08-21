@@ -1,0 +1,26 @@
+!============================================================================
+  File      : MBL_WriteCoefficients.gmp
+  Remarks   : Write computed coefficients to file
+ =============================================================================!
+
+
+! === Material balance components!
+Write MBL_Q_q to file MBAL header "Q_q";
+Write MBL_s_I_q to file MBAL header "SI_q";
+Write MBL_s_FP_q to file MBAL header "SFPQ";
+Write MBL_s_FG_q to file MBAL header "SFGQ";
+Write MBL_s_FI_q to file MBAL header "SFIQ";
+
+! === Slack on material balance written to check file!
+Write MBL_SLACK_p to file CHEK header "SLCK";
+
+! === Check on matrix inversion written to check file!
+Write  MBL_CHK_INV to file CHEK header "CHKI";
+
+! === Production shares!
+Write MBL_LI to file FOOTP header "LI";
+Write MBL_FD_shr to file FOOTP header "FD_S";
+Write MBL_chk_FDq to file CHEK header "CQFD";
+
+! === Write footprints!
+Write MBL_FOOTP_FD to file FOOTP header "FPFD";

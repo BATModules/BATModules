@@ -1,0 +1,8 @@
+!============================================================================
+  File      : MBL_Files.gmp
+  Remarks   : File from which quantity coefficients are read
+ =============================================================================!
+
+! Files with input data !
+File GTAPSETS # File with set specification #;
+File GTAPDATA # File containing all Base Data #;

@@ -4,7 +4,7 @@
 --- PURPOSE
 Derives quantities that get as close as possible to the quantities from a
 standard GTAP database by removing taxes and transport margins that affect the
-alloaction of material flows over destinations. These coeffiicents can be linked
+alloaction of material flows over destinations. These coefficients can be linked
 to stanadrd GTAP v7 model variables to update them in model simulations.
 Post-simulation material balances can be computed to check the consistency of
 the quantity estimates when tracing impacts through global supply chains.
@@ -126,9 +126,9 @@ ZeroDivide default 0;
 
 ! Define production in q quantity terms!
 Coefficient (all,c,COMM)(all,a,ACTS)(all,r,REG)
- PROD_q(c,a,r) # Quantity produced of c by activity a in r (mil USD) #;
+ MBL_PROD_q(c,a,r) # Quantity produced of c by activity a in r (mil USD) #;
  Formula (all,c,COMM)(all,a,ACTS)(all,r,REG)
- PROD_q(c,a,r) = MAKES(c,a,r);
+ MBL_PROD_q(c,a,r) = MAKES(c,a,r);
 
 !For demand for domestic production in quantities we need to remove output
 taxes from the purchases at basic prices. Export taxes are removed by reading
@@ -136,48 +136,48 @@ demand at baisc prices (VXSB) instead of at FOB prices (VFOB)!
  
  ! Compute output tax rate from MAKE matrices at producer and basic prcies!
 Coefficient (all,c,COMM)(all,r,REG)
- ProdTaxRate(c,r) # Output tax rate (Prodtax in SAM) in region s on c #;
+MBL_PTaxRate(c,r) # Output tax rate (Prodtax in SAM) in region s on c #;
  Formula (all,c,COMM)(all,r,REG)
- ProdTaxRate(c,r) = sum{a,ACTS, MAKEB(c,a,r)} / sum{a,ACTS, MAKES(c,a,r)};
+MBL_PTaxRate(c,r) = sum{a,ACTS, MAKEB(c,a,r)} / sum{a,ACTS, MAKES(c,a,r)};
  ! NB if >1 then there is a tax, <1 implies a subsidy!
  
  !Remove production taxes from demand for domestic supply!
 
 !Intermediate demand - domestic!
-Coefficient (all,c,COMM)(all,a,ACTS)(all,r,REG)  d_INT_q(c,a,r) 
+Coefficient (all,c,COMM)(all,a,ACTS)(all,r,REG)  MBL_d_INT_q(c,a,r) 
  # Quantity domestic intermediate demand for c by a in r (mil USD)#;
  Formula (all,c,COMM)(all,a,ACTS)(all,r,REG)  
- d_INT_q(c,a,r)  = VDFB(c,a,r) / ProdTaxRate(c,r);
+ MBL_d_INT_q(c,a,r)  = VDFB(c,a,r) /MBL_PTaxRate(c,r);
  
 !Final demand, private household - domestic!
-Coefficient (all,c,COMM)(all,r,REG)  d_FINP_q(c,r) 
+Coefficient (all,c,COMM)(all,r,REG)  MBL_d_FINP_q(c,r) 
  # Quantity domestic final private household demand for c in r (mil USD)#;
  Formula  (all,c,COMM)(all,r,REG)  
- d_FINP_q(c,r) = VDPB(c,r)  / ProdTaxRate(c,r);
+ MBL_d_FINP_q(c,r) = VDPB(c,r)  /MBL_PTaxRate(c,r);
 
 !Final demand, government - domestic!
-Coefficient (all,c,COMM)(all,r,REG)  d_FING_q(c,r) 
+Coefficient (all,c,COMM)(all,r,REG)  MBL_d_FING_q(c,r) 
  # Quantity domestic final government demand for c in r (mil USD)#;
  Formula (all,c,COMM)(all,r,REG)  
- d_FING_q(c,r) = VDGB(c,r)  / ProdTaxRate(c,r);
+ MBL_d_FING_q(c,r) = VDGB(c,r)  /MBL_PTaxRate(c,r);
 
 !Final demand, investment - domestic!
-Coefficient (all,c,COMM)(all,r,REG)  d_FINI_q(c,r) 
+Coefficient (all,c,COMM)(all,r,REG)  MBL_d_FINI_q(c,r) 
  # Quantity domestic final investment demand for c in r (mil USD)#;
  Formula (all,c,COMM)(all,r,REG)  
- d_FINI_q(c,r) = VDIB(c,r)  / ProdTaxRate(c,r);
+ MBL_d_FINI_q(c,r) = VDIB(c,r)  /MBL_PTaxRate(c,r);
 
 ! Bilateral trade !
-Coefficient (all,c,COMM)(all,s,REG)(all,d,REG) TRADE_q(c,s,d)
+Coefficient (all,c,COMM)(all,s,REG)(all,d,REG) MBL_TRADE_q(c,s,d)
  # Quantity of c exported from s to d (mil USD) #;
  Formula (all,c,COMM)(all,s,REG)(all,d,REG) 
- TRADE_q(c,s,d) = VXSB(c,s,d) / ProdTaxRate(c,s);
+ MBL_TRADE_q(c,s,d) = VXSB(c,s,d) /MBL_PTaxRate(c,s);
 
 ! Supply of margin commodities to global transport pool!
-Coefficient (all,m,MARG)(all,r,REG)  TRANSS_q(m,r)  
+Coefficient (all,m,MARG)(all,r,REG)  MBL_TRANSS_q(m,r)  
   # Quantity int'l margin m supplied to global pool by r (mil USD)#;
   Formula (all,m,MARG)(all,r,REG)
-  TRANSS_q(m,r) = VST(m,r) / ProdTaxRate(m,r);
+  MBL_TRANSS_q(m,r) = VST(m,r) /MBL_PTaxRate(m,r);
  
 ! Check that activity supply now equals demand - separate for margin and
 non-margin commodities!
@@ -185,22 +185,22 @@ Coefficient (all,c,COMM)(all,r,REG) MBL_CHK1(c,r)
 # Check step 1: adjustment domestic demand for production taxes # ;
   Formula (all,c,NMARG)(all,r,REG)
   MBL_CHK1(c,r) = ! supply at basic prices !
-               + sum{a,ACTS,PROD_q(c,a,r)} 
+               + sum{a,ACTS,MBL_PROD_q(c,a,r)} 
                ! intermediate demand corrected for production taxes !
-               - sum(a,ACTS, d_INT_q(c,a,r)) 
-               - d_FINP_q(c,r) - d_FING_q(c,r) - d_FINI_q(c,r)
+               - sum(a,ACTS, MBL_d_INT_q(c,a,r)) 
+               - MBL_d_FINP_q(c,r) - MBL_d_FING_q(c,r) - MBL_d_FINI_q(c,r)
                 ! exports  !
-               - sum{d,REG, TRADE_q(c,r,d)};
+               - sum{d,REG, MBL_TRADE_q(c,r,d)};
 Formula (all,m,MARG)(all,r,REG)
   MBL_CHK1(m,r) = ! supply at basic prices !
-               + sum{a,ACTS,PROD_q(m,a,r)}
+               + sum{a,ACTS,MBL_PROD_q(m,a,r)}
                ! intermediate demand corrected for production taxes !
-               - sum(a,ACTS, d_INT_q(m,a,r)) 
-               - d_FINP_q(m,r) - d_FING_q(m,r) - d_FINI_q(m,r)
+               - sum(a,ACTS, MBL_d_INT_q(m,a,r)) 
+               - MBL_d_FINP_q(m,r) - MBL_d_FING_q(m,r) - MBL_d_FINI_q(m,r)
                ! supply to global pool (non-zero only for margins )!
-               - TRANSS_q(m,r)
+               - MBL_TRANSS_q(m,r)
                ! exports  !
-               - sum{d,REG, TRADE_q(m,r,d)};
+               - sum{d,REG, MBL_TRADE_q(m,r,d)};
 Write MBL_CHK1 to file CHEK header "MBL1";
 
 
@@ -215,49 +215,53 @@ and transport costs (TRADE_q(c,s,d)) based on agent's shares in total imports
 at basic prices.!
 
 !Total intermediate and final import demand at basic prices!
-Coefficient (all,c,COMM)(all,d,REG) MTOTB(c,d)
+Coefficient (all,c,COMM)(all,d,REG) MBL_MTOTB(c,d)
  # Total value imported in region d (incl. all duties & transport) #;
  Formula (all,c,COMM)(all,d,REG) 
-  MTOTB(c,d) = sum{a,ACTS, VMFB(c,a,d)} + VMPB(c,d) + VMGB(c,d) + VMIB(c,d);
+  MBL_MTOTB(c,d) = sum{a,ACTS, VMFB(c,a,d)} + VMPB(c,d) + VMGB(c,d) + VMIB(c,d);
 
 !Intermediate demand - imported!
-Coefficient (all,c,COMM)(all,a,ACTS)(all,d,REG) m_INT_q(c,a,d) 
+Coefficient (all,c,COMM)(all,a,ACTS)(all,d,REG) MBL_m_INT_q(c,a,d) 
  # Quantity imported intermediate demand for c by a in d (mil USD)#;
  Formula (all,c,COMM)(all,a,ACTS)(all,d,REG)  
- m_INT_q(c,a,d) = sum{r,REG, [VMFB(c,a,d) / MTOTB(c,d)] * TRADE_q(c,r,d)};  
+ MBL_m_INT_q(c,a,d) = sum{r,REG, [VMFB(c,a,d) / MBL_MTOTB(c,d)] *
+MBL_TRADE_q(c,r,d)};  
   
 !Final demand, private household - imported!
-Coefficient (all,c,COMM)(all,d,REG) m_FINP_q(c,d) 
+Coefficient (all,c,COMM)(all,d,REG) MBL_m_FINP_q(c,d) 
  # Quantity imported private household demand for c in d (mil USD)#;
  Formula (all,c,COMM)(all,d,REG)
- m_FINP_q(c,d) = sum{r,REG,[VMPB(c,d) / MTOTB(c,d)] * TRADE_q(c,r,d)};  
+ MBL_m_FINP_q(c,d) = sum{r,REG,[VMPB(c,d) / MBL_MTOTB(c,d)] *
+MBL_TRADE_q(c,r,d)};  
  
 !Final demand, government - imported!
-Coefficient (all,c,COMM)(all,d,REG)  m_FING_q(c,d) 
+Coefficient (all,c,COMM)(all,d,REG)  MBL_m_FING_q(c,d) 
  # Quantity imported government demand for c in d (mil USD)#;
  Formula (all,c,COMM)(all,d,REG)  
- m_FING_q(c,d) = sum{r,REG, [VMGB(c,d) / MTOTB(c,d)] * TRADE_q(c,r,d)};  
+ MBL_m_FING_q(c,d) = sum{r,REG, [VMGB(c,d) / MBL_MTOTB(c,d)] *
+MBL_TRADE_q(c,r,d)};  
  
 !Final demand, investment - imported!
-Coefficient (all,c,COMM)(all,d,REG)  m_FINI_q(c,d) 
+Coefficient (all,c,COMM)(all,d,REG)  MBL_m_FINI_q(c,d) 
  # Quantity imported investment demand for c in d (mil USD)#;
  Formula (all,c,COMM)(all,d,REG)  
- m_FINI_q(c,d) = sum{r,REG,[VMIB(c,d) / MTOTB(c,d)] * TRADE_q(c,r,d)};  
+ MBL_m_FINI_q(c,d) = sum{r,REG,[VMIB(c,d) / MBL_MTOTB(c,d)] *
+MBL_TRADE_q(c,r,d)};  
 
 ! Check that exports match import demand!
 Coefficient (all,c,COMM)
   MBL_CHCK_2(c) # Check step 2: adjust import demand for margin and taxes #;
   Formula (all,c,COMM)
   MBL_CHCK_2(c) = ! exports from region r to d!
-              + sum{r,REG, sum{d,REG, TRADE_q(c,r,d)}}
+              + sum{r,REG, sum{d,REG, MBL_TRADE_q(c,r,d)}}
               ! intermediate demand imports!
-              - sum{d,REG, sum{a,ACTS, m_INT_q(c,a,d)}}
+              - sum{d,REG, sum{a,ACTS, MBL_m_INT_q(c,a,d)}}
               ! private household demand imports !
-              - sum{d,REG, m_FINP_q(c,d)}
+              - sum{d,REG, MBL_m_FINP_q(c,d)}
               ! government demand imports !
-              - sum{d,REG, m_FING_q(c,d)}
+              - sum{d,REG, MBL_m_FING_q(c,d)}
               ! investment demand imports !
-              - sum{d,REG, m_FINI_q(c,d)};
+              - sum{d,REG, MBL_m_FINI_q(c,d)};
 Write MBL_CHCK_2 to file CHEK header "MBL2";
 
 !EndRegion!
@@ -272,10 +276,11 @@ demand in region d by the same factor (i.e. only margin specific, not region
 specific). No taxes on margins so can use values as quantities
 in initialization!
 
-Coefficient (all,m,MARG)(all,c,COMM)(all,r,REG)(all,d,REG)  TRANSD_q(m,c,r,d)
+Coefficient (all,m,MARG)(all,c,COMM)(all,r,REG)(all,d,REG) 
+MBL_TRANSD_q(m,c,r,d)
  # Quantity int'l margin demanded for imports of c in d from r (mil USD) #;
  Formula (all,m,MARG)(all,c,COMM)(all,r,REG)(all,d,REG)
- TRANSD_q(m,c,r,d) = sum{t,REG,TRANSS_q(m,t)} / sum{t,REG,VST(m,t)}
+ MBL_TRANSD_q(m,c,r,d) = sum{t,REG,MBL_TRANSS_q(m,t)} / sum{t,REG,VST(m,t)}
                     *  VTMFSD(m,c,r,d);
 
 ! Check balance of global transport pool!
@@ -283,9 +288,9 @@ Coefficient (all,m,MARG)
  CHK_3(m) # Check step 3: balancing of global transport pool #;
  Formula (all,m,MARG) 
  CHK_3(m) = ! supply to global transport pool !
-          + sum{r,REG, TRANSS_q(m,r)}
+          + sum{r,REG, MBL_TRANSS_q(m,r)}
             ! demand for transport!
-          - sum{c,COMM, sum{r,REG, Sum{d,REG, TRANSD_q(m,c,r,d)}}};
+          - sum{c,COMM, sum{r,REG, Sum{d,REG, MBL_TRANSD_q(m,c,r,d)}}};
   Write CHK_3 to file CHEK header "CHK3";
 
 !EndRegion!
@@ -303,20 +308,20 @@ Transfer unwritten from file GTAPDATA to file DATA;
 
 ! Write the quantity coefficients!
 !  - Production!
-Write PROD_q to file DATA header "PQ_Q";
+Write MBL_PROD_q to file DATA header "PQ_Q";
 ! - domestic demand !
-Write d_INT_q to file DATA header "DA_Q";
-Write d_FINP_q to file DATA header "DP_Q";
-Write d_FING_q to file DATA header "DG_Q";
-Write d_FINI_q to file DATA header "DI_Q";
+Write MBL_d_INT_q to file DATA header "DA_Q";
+Write MBL_d_FINP_q to file DATA header "DP_Q";
+Write MBL_d_FING_q to file DATA header "DG_Q";
+Write MBL_d_FINI_q to file DATA header "DI_Q";
 ! - international trade!
-Write TRADE_q to file DATA header "TR_Q";
+Write MBL_TRADE_q to file DATA header "TR_Q";
 ! - import demand !
-Write m_INT_q to file DATA header "MA_Q";
-Write m_FINP_q to file DATA header "MP_Q";
-Write m_FING_q to file DATA header "MG_Q";
-Write m_FINI_q to file DATA header "MI_Q";
+Write MBL_m_INT_q to file DATA header "MA_Q";
+Write MBL_m_FINP_q to file DATA header "MP_Q";
+Write MBL_m_FING_q to file DATA header "MG_Q";
+Write MBL_m_FINI_q to file DATA header "MI_Q";
 ! - transport margin supply and demand!
-Write TRANSS_q to file DATA header "TS_Q";
-Write TRANSD_q to file DATA header "TD_Q";
+Write MBL_TRANSS_q to file DATA header "TS_Q";
+Write MBL_TRANSD_q to file DATA header "TD_Q";
 

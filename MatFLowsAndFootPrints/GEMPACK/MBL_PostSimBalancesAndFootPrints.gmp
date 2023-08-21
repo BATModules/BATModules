@@ -72,4 +72,8 @@ Postsim (begin);
 ! == Compute footprint indicators !
 !$include .\MBL_postsim\MBL_Footprints.gmp!
 
+! == Compute footprint indicators !
+!$include .\MBL_postsim\MBL_WriteCoefficients.gmp!
+
+
 Postsim (end);

@@ -10,67 +10,68 @@ Coefficient (parameter) (all,c,COMM)(all,a,ACTS)(all,r,REG)
 
 ! = Production!
 Coefficient (parameter)  (all,c,COMM)(all,a,ACTS)(all,r,REG)
- PROD_q(c,a,r) # Quantity produced of c by activity a in r (mil USD) #;
- Read PROD_q from file GTAPDATA header "PQ_Q";
+ MBL_PROD_q(c,a,r) # Quantity produced of c by activity a in r (mil USD) #;
+ Read MBL_PROD_q from file GTAPDATA header "Q_q";
 
 ! = Domestic demand !
 
 !   - Intermediates !
-Coefficient (parameter)  (all,c,COMM)(all,a,ACTS)(all,r,REG)  d_INT_q(c,a,r) 
+Coefficient (parameter)  (all,c,COMM)(all,a,ACTS)(all,r,REG)  MBL_d_INT_q(c,a,r) 
  # Quantity domestic intermediate demand for c by a in s (mil USD)#;
- Read d_INT_q from file GTAPDATA header "DA_Q";
+ Read MBL_d_INT_q from file GTAPDATA header "DA_Q";
 
 !   - Final demand, private household !
-Coefficient (parameter)  (all,c,COMM)(all,r,REG)  d_FINP_q(c,r) 
+Coefficient (parameter)  (all,c,COMM)(all,r,REG)  MBL_d_FINP_q(c,r) 
  # Quantity domestic final private household demand for c in r (mil USD)#;
- Read d_FINP_q from file GTAPDATA header "DP_Q";
+ Read MBL_d_FINP_q from file GTAPDATA header "DP_Q";
  
 !   - Final demand, government !
-Coefficient (parameter)  (all,c,COMM)(all,r,REG)  d_FING_q(c,r) 
+Coefficient (parameter)  (all,c,COMM)(all,r,REG)  MBL_d_FING_q(c,r) 
  # Quantity domestic final government demand for c in r (mil USD)#;
- Read d_FING_q from file GTAPDATA header "DG_Q";
+ Read MBL_d_FING_q from file GTAPDATA header "DG_Q";
 
 !   - Final demand, investments! 
-Coefficient (parameter)  (all,c,COMM)(all,r,REG)  d_FINI_q(c,r) 
+Coefficient (parameter)  (all,c,COMM)(all,r,REG)  MBL_d_FINI_q(c,r) 
  # Quantity domestic final investment demand for c in r (mil USD)#;
- Read d_FINI_q from file GTAPDATA header "DI_Q";
+ Read MBL_d_FINI_q from file GTAPDATA header "DI_q";
 
 ! = Trade !
-Coefficient (parameter)  (all,c,COMM)(all,r,REG)(all,d,REG) TRADE_q(c,r,d)
+Coefficient (parameter)  (all,c,COMM)(all,r,REG)(all,d,REG) MBL_TRADE_q(c,r,d)
  # Quantity of c exported from r to d (mil USD) #;
- Read TRADE_q from file GTAPDATA header "TR_Q";
+ Read MBL_TRADE_q from file GTAPDATA header "TR_Q";
 
 ! = Import demand !
 
 !   - Intermediates !
-Coefficient (parameter)  (all,c,COMM)(all,a,ACTS)(all,d,REG) m_INT_q(c,a,d) 
+Coefficient (parameter)  (all,c,COMM)(all,a,ACTS)(all,d,REG) 
+ MBL_m_INT_q(c,a,d)
  # Quantity imported intermediate demand for c by a in d (mil USD)#;
-  Read m_INT_q from file GTAPDATA header "MA_Q";
+  Read MBL_m_INT_q from file GTAPDATA header "MA_Q";
  
 !   - Final demand, private household !
-Coefficient (parameter)  (all,c,COMM)(all,d,REG) m_FINP_q(c,d) 
+Coefficient (parameter)  (all,c,COMM)(all,d,REG) MBL_m_FINP_q(c,d) 
  # Quantity imported private household demand for c in d (mil USD)#;
- Read m_FINP_q from file GTAPDATA header "MP_Q";
+ Read MBL_m_FINP_q from file GTAPDATA header "MP_Q";
  
 !   - Final demand, government !
-Coefficient (parameter)  (all,c,COMM)(all,d,REG)  m_FING_q(c,d) 
+Coefficient (parameter)  (all,c,COMM)(all,d,REG)  MBL_m_FING_q(c,d) 
  # Quantity imported government demand for c in d (mil USD)#;
- Read m_FING_q from file GTAPDATA header "MG_Q";
+ Read MBL_m_FING_q from file GTAPDATA header "MG_Q";
 
 !   - Final demand, investments! 
-Coefficient (parameter)  (all,c,COMM)(all,d,REG)  m_FINI_q(c,d) 
+Coefficient (parameter)  (all,c,COMM)(all,d,REG)  MBL_m_FINI_q(c,d) 
  # Quantity imported investment demand for c in d (mil USD)#;
- Read m_FINI_q from file GTAPDATA header "MI_Q";
+ Read MBL_m_FINI_q from file GTAPDATA header "MI_q";
 
 ! = Transport margin supply and demand!
 
 !   - Supply of margin commodities to global transport pool!
-Coefficient (parameter)  (all,m,MARG)(all,r,REG)  TRANSS_q(m,r)  
+Coefficient (parameter)  (all,m,MARG)(all,r,REG)  MBL_TRANSS_q(m,r)  
  # Quantity int'l margin m supplied to global pool by r (mil USD)#;
- Read TRANSS_q from file GTAPDATA header "TS_Q";
+ Read MBL_TRANSS_q from file GTAPDATA header "TS_Q";
 
 !   - Demand for margin commodities from global transport pool!
 Coefficient (parameter)  (all,m,MARG)(all,c,COMM)(all,r,REG)(all,d,REG)
- TRANSD_q(m,c,r,d)
+ MBL_TRANSD_q(m,c,r,d)
  # Quantity int'l margin demanded for imports of c in d from r (mil USD) #;
-  Read TRANSD_q from file GTAPDATA header "TD_Q";
+  Read MBL_TRANSD_q from file GTAPDATA header "TD_Q";
