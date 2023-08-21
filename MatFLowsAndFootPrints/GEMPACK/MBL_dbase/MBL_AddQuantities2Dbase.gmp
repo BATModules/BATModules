@@ -1,0 +1,26 @@
+!============================================================================
+  File      : MBL_AddQuantities2Dbase.gmp
+  Remarks   : Adjust database by adding new quantity measures
+ =============================================================================!
+
+! Transfer all existing data from the source database!
+Transfer unwritten from file GTAPDATA to file DATA;
+
+! Write the quantity coefficients!
+!  - Production!
+Write PROD_q to file DATA header "PQ_Q";
+! - domestic demand !
+Write d_INT_q to file DATA header "DA_Q";
+Write d_FINP_q to file DATA header "DP_Q";
+Write d_FING_q to file DATA header "DG_Q";
+Write d_FINI_q to file DATA header "DI_Q";
+! - international trade!
+Write TRADE_q to file DATA header "TR_Q";
+! - import demand !
+Write m_INT_q to file DATA header "MA_Q";
+Write m_FINP_q to file DATA header "MP_Q";
+Write m_FING_q to file DATA header "MG_Q";
+Write m_FINI_q to file DATA header "MI_Q";
+! - transport margin supply and demand!
+Write TRANSS_q to file DATA header "TS_Q";
+Write TRANSD_q to file DATA header "TD_Q";

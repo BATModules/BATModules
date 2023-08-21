@@ -1,0 +1,76 @@
+!============================================================================
+  File      : MBL_ReadData.gmp
+  Remarks   : Read data holding quantities
+ =============================================================================!
+
+! Make matrix (for value shares)!
+Coefficient (parameter) (all,c,COMM)(all,a,ACTS)(all,r,REG)  
+    MAKEB(c,a,r) # 'make' matrix valued at basic prices #;
+   Read  MAKEB from file GTAPDATA header "MAKB";
+
+! = Production!
+Coefficient (parameter)  (all,c,COMM)(all,a,ACTS)(all,r,REG)
+ PROD_q(c,a,r) # Quantity produced of c by activity a in r (mil USD) #;
+ Read PROD_q from file GTAPDATA header "PQ_Q";
+
+! = Domestic demand !
+
+!   - Intermediates !
+Coefficient (parameter)  (all,c,COMM)(all,a,ACTS)(all,r,REG)  d_INT_q(c,a,r) 
+ # Quantity domestic intermediate demand for c by a in s (mil USD)#;
+ Read d_INT_q from file GTAPDATA header "DA_Q";
+
+!   - Final demand, private household !
+Coefficient (parameter)  (all,c,COMM)(all,r,REG)  d_FINP_q(c,r) 
+ # Quantity domestic final private household demand for c in r (mil USD)#;
+ Read d_FINP_q from file GTAPDATA header "DP_Q";
+ 
+!   - Final demand, government !
+Coefficient (parameter)  (all,c,COMM)(all,r,REG)  d_FING_q(c,r) 
+ # Quantity domestic final government demand for c in r (mil USD)#;
+ Read d_FING_q from file GTAPDATA header "DG_Q";
+
+!   - Final demand, investments! 
+Coefficient (parameter)  (all,c,COMM)(all,r,REG)  d_FINI_q(c,r) 
+ # Quantity domestic final investment demand for c in r (mil USD)#;
+ Read d_FINI_q from file GTAPDATA header "DI_Q";
+
+! = Trade !
+Coefficient (parameter)  (all,c,COMM)(all,r,REG)(all,d,REG) TRADE_q(c,r,d)
+ # Quantity of c exported from r to d (mil USD) #;
+ Read TRADE_q from file GTAPDATA header "TR_Q";
+
+! = Import demand !
+
+!   - Intermediates !
+Coefficient (parameter)  (all,c,COMM)(all,a,ACTS)(all,d,REG) m_INT_q(c,a,d) 
+ # Quantity imported intermediate demand for c by a in d (mil USD)#;
+  Read m_INT_q from file GTAPDATA header "MA_Q";
+ 
+!   - Final demand, private household !
+Coefficient (parameter)  (all,c,COMM)(all,d,REG) m_FINP_q(c,d) 
+ # Quantity imported private household demand for c in d (mil USD)#;
+ Read m_FINP_q from file GTAPDATA header "MP_Q";
+ 
+!   - Final demand, government !
+Coefficient (parameter)  (all,c,COMM)(all,d,REG)  m_FING_q(c,d) 
+ # Quantity imported government demand for c in d (mil USD)#;
+ Read m_FING_q from file GTAPDATA header "MG_Q";
+
+!   - Final demand, investments! 
+Coefficient (parameter)  (all,c,COMM)(all,d,REG)  m_FINI_q(c,d) 
+ # Quantity imported investment demand for c in d (mil USD)#;
+ Read m_FINI_q from file GTAPDATA header "MI_Q";
+
+! = Transport margin supply and demand!
+
+!   - Supply of margin commodities to global transport pool!
+Coefficient (parameter)  (all,m,MARG)(all,r,REG)  TRANSS_q(m,r)  
+ # Quantity int'l margin m supplied to global pool by r (mil USD)#;
+ Read TRANSS_q from file GTAPDATA header "TS_Q";
+
+!   - Demand for margin commodities from global transport pool!
+Coefficient (parameter)  (all,m,MARG)(all,c,COMM)(all,r,REG)(all,d,REG)
+ TRANSD_q(m,c,r,d)
+ # Quantity int'l margin demanded for imports of c in d from r (mil USD) #;
+  Read TRANSD_q from file GTAPDATA header "TD_Q";

@@ -1,0 +1,231 @@
+!============================================================================
+  File      : MBL_ConstructBalances.gmp
+  Remarks   : Construct regionalized material balances using data on quantiites
+              produced and demanded
+ =============================================================================!
+
+!Region Allocate activity intermediate demand to commodities !
+
+! Activity accounts need to be split in case of by-products. Default split is 
+  value-based (computed from baseedata). Can be replaced by user-defined split 
+  read from file if provided.!
+
+!Value-shares of commodities in intermediate input use - no differentiation by
+inputs !
+Coefficient (parameter) (all,c,COMM)(all,a,ACTS)(all,r,REG) 
+ VAL_SHR(c,a,r) # Commodity share in activity a input use  in r #;
+  !Initialize split on make matrix - value shares!
+ Formula (initial) (all,c,COMM)(all,a,ACTS)(all,r,REG) 
+ VAL_SHR(c,a,r) = MAKEB(c,a,r)/sum{cc,COMM,MAKEB(cc,a,r)};
+  
+Coefficient (parameter) (all,c,COMM)(all,i,COMM)(all,a,ACTS)(all,r,REG) 
+ COMM_SHR(c,i,a,r) # Commodity share c in inputs i used by activity a in r #;
+ Formula (initial) (all,c,COMM)(all,i,COMM)(all,a,ACTS)(all,r,REG) 
+ COMM_SHR(c,i,a,r) = VAL_SHR(c,a,r);
+ !Write to check file so can serve as template for custom shares!
+ Write COMM_SHR to file CHEK header "VBCS";
+
+!Allow user-defined shares to change allocation of inputs!
+Read(IfHeaderExists) COMM_SHR from file XDATA header "CSHR";
+
+!EndRegion!
+
+!Region Define components of material balance equations !
+
+!Define coefficients for material balance equations in quantity terms
+   production (Q) = intermediate demand (I) + final demand (F)!
+
+! == Define coefficients to construct the material balance!
+Coefficient 
+(all,i,COMM)(all,s,REG)  Q_q(i,s) 
+  # Quantity of production by commodity i and region s (mil USD)#;
+(all,i,COMM)(all,s,REG)(all,c,COMM)(all,d,REG) I_q(i,s,c,d) 
+  # Intermediate demand for i from s by commodity c in region d (mil USD) #;
+(all,i,COMM)(all,s,REG)(all,d,REG) FP_q(i,s,d) 
+  # Final demand for i from s by private household in region d (mil USD) #;
+(all,i,COMM)(all,s,REG)(all,d,REG) FG_q(i,s,d) 
+  # Final demand for i from s by government in region d (mil USD) #;
+(all,i,COMM)(all,s,REG)(all,d,REG) FI_q(i,s,d) 
+  # Final demand for i from s by investment in region d (mil USD) #;
+  
+! == Total demand for imports from demand - assures that shares sum to 1 !
+Coefficient (all,i,COMM)(all,d,REG)
+ m_TOT_q(i,d) # Total demand for imports i in destination region d (mil. USD)#;
+ Formula (all,i,COMM)(all,d,REG)
+ m_TOT_q(i,d) = sum{a,ACTS, m_INT_q(i,a,d)} + m_FINP_q(i,d) + m_FING_q(i,d) 
+              + m_FINI_q(i,d);
+
+! == Fill production!
+ Formula (all,i,COMM)(all,s,REG)
+ Q_q(i,s) = sum{a,ACTS, PROD_Q(i,a,s)};
+
+
+!Region Fill for non-margin deamnd ! 
+
+! == Fill intermediate demand!
+! ---- imports!
+Formula (all,i,COMM)(all,s,REG)(all,c,COMM)(all,d,REG)
+  I_q(i,s,c,d) = TRADE_q(i,s,d) 
+   * sum{a,ACTS, COMM_SHR(c,i,a,d) * m_INT_q(i,a,d)} / m_TOT_q(i,d);
+! ---- domestic (allowing for self-trade)!               
+Formula (all,i,COMM)(all,c,COMM)(all,d,REG)
+  I_q(i,d,c,d) =  I_q(i,d,c,d) 
+               + sum{a,ACTS, COMM_SHR(c,i,a,d) * d_INT_q(i,a,d)};
+
+! == Fill final demand from private household!
+! ---- imports!
+Formula (all,i,COMM)(all,s,REG)(all,d,REG)
+  FP_q(i,s,d) = TRADE_q(i,s,d) * m_FINP_q(i,d) / m_TOT_q(i,d);
+! ---- domestic (allowing for self-trade)!               
+Formula (all,i,COMM)(all,d,REG)
+  FP_q(i,d,d) =  FP_q(i,d,d) + d_FINP_q(i,d);
+
+! == Fill final demand from government!
+! ---- imports!
+Formula (all,i,COMM)(all,s,REG)(all,d,REG)
+  FG_q(i,s,d) = TRADE_q(i,s,d) * m_FING_q(i,d) / m_TOT_q(i,d);
+! ---- domestic (allowing for self-trade)!               
+Formula (all,i,COMM)(all,d,REG)
+  FG_q(i,d,d) =  FG_q(i,d,d) + d_FING_q(i,d);
+
+! == Fill final demand from investment!
+! ---- imports!
+Formula (all,i,COMM)(all,s,REG)(all,d,REG)
+  FI_q(i,s,d) = TRADE_q(i,s,d) * m_FINI_q(i,d) / m_TOT_q(i,d);
+! ---- domestic (allowing for self-trade)!               
+Formula (all,i,COMM)(all,d,REG)
+  FI_q(i,d,d) =  FI_q(i,d,d) + d_FINI_q(i,d);
+
+!EndRegion!
+
+!Region Allocate international margins & add to demand !
+
+! Allocate international margins supplied to the global transpot pool by using
+  the share of supplying rgeions t in total transport and allocating the demand
+  for international margins linked to imports of c from from s based on the
+  share of each demand category in total imports of c from s. Result is then
+  summed over c and set to get the (indiretc) imports of margins m from
+  transporter region t by the demand categories in d.
+!
+
+Coefficient (all,m,MARG)(all,t,REG)(all,c,COMM)(all,d,REG)  m_I_TRNS(m,t,c,d)
+  # Int'l transport margins from s for intermediate use by c in d (mil. USD) #;
+  Formula (all,m,MARG)(all,t,REG)(all,c,COMM)(all,d,REG)  
+  m_I_TRNS(m,t,c,d) = sum{i,COMM, sum{s,REG,
+  ! regional share of transporter t in supply of margin m to global pool !
+  [TRANSS_q(m,t)/sum{tt,REG,TRANSS_q(m,tt)} ] 
+  ! demand category share in total imports of commodity i !
+  * sum{a,ACTS, COMM_SHR(c,i,a,d) * m_INT_q(i,a,d)} / m_TOT_q(i,d)
+  ! international margins demanded for imports of commodity i from s!
+  * TRANSD_q(m,i,s,d)}};
+  
+Coefficient (all,m,MARG)(all,t,REG)(all,d,REG)  m_FP_TRNS(m,t,d)
+  # Int'l transport margins from t for private hh imports in d (mil. USD) #;
+  Formula (all,m,MARG)(all,t,REG)(all,d,REG)  
+   m_FP_TRNS(m,t,d) = sum{i,COMM, sum{s,REG,
+  ! regional share of transporter t in supply of margin m to global pool !
+  [TRANSS_q(m,t)/sum{tt,REG,TRANSS_q(m,tt)} ] 
+  ! demand category share in total imports of commodity i !
+  * m_FINP_q(i,d) / m_TOT_q(i,d)
+  ! international margins demanded for imports of commodity i from s!
+  * TRANSD_q(m,i,s,d)}};
+
+Coefficient (all,m,MARG)(all,t,REG)(all,d,REG)  m_FG_TRNS(m,t,d)
+  # Int'l transport margins from t for government imports in d (mil. USD) #;
+  Formula (all,m,MARG)(all,t,REG)(all,d,REG)  
+   m_FG_TRNS(m,t,d) = sum{i,COMM, sum{s,REG,
+  ! regional share of transporter t in supply of margin m to global pool !
+  [TRANSS_q(m,t)/sum{tt,REG,TRANSS_q(m,tt)} ] 
+  ! demand category share in total imports of commodity i !
+  * m_FING_q(i,d) / m_TOT_q(i,d)
+  ! international margins demanded for imports of commodity i from s!
+  * TRANSD_q(m,i,s,d)}};
+
+Coefficient (all,m,MARG)(all,t,REG)(all,d,REG)  m_FI_TRNS(m,t,d)
+  # Int'l transport margins from t for investment imports in d (mil. USD) #;
+  Formula (all,m,MARG)(all,t,REG)(all,d,REG)  
+   m_FI_TRNS(m,t,d) = sum{i,COMM, sum{s,REG,
+  ! regional share of transporter t in supply of margin m to global pool !
+  [TRANSS_q(m,t)/sum{tt,REG,TRANSS_q(m,tt)} ] 
+  ! demand category share in total imports of commodity i !
+  * m_FINI_q(i,d) / m_TOT_q(i,d)
+  ! international margins demanded for imports of commodity i from s!
+  * TRANSD_q(m,i,s,d)}};
+
+! Add this indirect demand for transport services to the direct demand already
+  computed above!
+  
+Formula (all,m,MARG)(all,s,REG)(all,c,COMM)(all,d,REG)
+  I_q(m,s,c,d) = I_q(m,s,c,d) + m_I_TRNS(m,s,c,d);
+Formula (all,m,MARG)(all,s,REG)(all,d,REG)
+  FP_q(m,s,d) = FP_q(m,s,d) +  m_FP_TRNS(m,s,d);
+Formula (all,m,MARG)(all,s,REG)(all,d,REG)
+  FG_q(m,s,d) = FG_q(m,s,d) +  m_FG_TRNS(m,s,d);
+Formula (all,m,MARG)(all,s,REG)(all,d,REG)
+  FI_q(m,s,d) = FI_q(m,s,d) +  m_FI_TRNS(m,s,d);
+
+!EndRegion!
+
+!EndRegion!
+
+!Region Check if material balances hold!
+
+! Compute total demand for i from s over all demand categories!
+Coefficient (all,i,COMM)(all,s,REG)
+ TOTDEM_q(i,s) # Total demand for commodity i from s (mil USD) #;
+ Formula (all,i,COMM)(all,s,REG)
+ TOTDEM_q(i,s) = sum{d,REG, sum{c,COMM, I_q(i,s,c,d)} 
+               + FP_q(i,s,d) + FG_q(i,s,d) + FI_q(i,s,d)};
+
+! Compute slack on material balances in precentages as quantities produced vary
+ widely !
+Coefficient (all,i,COMM)(all,s,REG)  SLACK_p(i,s) 
+  # Slack or imbalance in material flows for commodity i from s (%) #;
+ Formula (all,i,COMM)(all,s,REG)  
+ SLACK_p(i,s) = 100 * [TOTDEM_q(i,s) / Q_q(i,s) -1];
+
+!EndRegion!
+
+!Region Scale demand categories to quantity produced!
+
+! We trust changes in production most as here maximum one CET in case of joint
+  production. Redistribute slack over demand categories to not bias relative 
+  amounts!
+
+Coefficient (all,i,COMM)(all,s,REG)(all,c,COMM)(all,d,REG) s_I_q(i,s,c,d) 
+  # Scaled interm. demand for i from s by commodity c in region d (mil USD) #;
+  Formula (all,i,COMM)(all,s,REG)(all,c,COMM)(all,d,REG) 
+  s_I_q(i,s,c,d) = [Q_q(i,s)/TOTDEM_q(i,s)] * I_q(i,s,c,d);
+  
+Coefficient (all,i,COMM)(all,s,REG)(all,d,REG) s_FP_q(i,s,d) 
+  # Scaled final demand for i from s by private hh in region d (mil USD) #;
+  Formula (all,i,COMM)(all,s,REG)(all,d,REG) 
+  s_FP_q(i,s,d) = [Q_q(i,s)/TOTDEM_q(i,s)] * FP_q(i,s,d);
+  
+Coefficient (all,i,COMM)(all,s,REG)(all,d,REG) s_FG_q(i,s,d) 
+  # Scaled final demand for i from s by government in region d (mil USD) #;
+  Formula (all,i,COMM)(all,s,REG)(all,d,REG) 
+  s_FG_q(i,s,d) = [Q_q(i,s)/TOTDEM_q(i,s)] * FG_q(i,s,d);
+  
+  
+Coefficient (all,i,COMM)(all,s,REG)(all,d,REG) s_FI_q(i,s,d) 
+  # Scaled final demand for i from s by investment in region d (mil USD) #;
+  Formula (all,i,COMM)(all,s,REG)(all,d,REG) 
+  s_FI_q(i,s,d) = [Q_q(i,s)/TOTDEM_q(i,s)] * FI_q(i,s,d);
+  
+!EndRegion!
+
+!Region Write material balance variables!
+
+! Material balance components!
+Write Q_q to file MBAL header "Q_Q";
+Write s_I_q to file MBAL header "SI_Q";
+Write s_FP_q to file MBAL header "SFPQ";
+Write s_FG_q to file MBAL header "SFGQ";
+Write s_FI_q to file MBAL header "SFIQ";
+
+! Slack on material balance written to check file!
+Write SLACK_p to file CHEK header "SLCK";
+
+!EndRegion!
+

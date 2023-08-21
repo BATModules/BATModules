@@ -1,0 +1,40 @@
+!
+=== Code to compute quantities from a GTAP databases ============
+
+--- PURPOSE
+Derives quantities that get as close as possible to the quantities from a
+standard GTAP database by removing taxes and transport margins that affect the
+alloaction of material flows over destinations. These coeffiicents can be linked
+to stanadrd GTAP v7 model variables to update them in model simulations.
+Post-simulation material balances can be computed to check the consistency of
+the quantity estimates when tracing impacts through global supply chains.
+
+---  USE 
+Provide a cmf file that links the logical file names in this code (GTAPSETS
+and GTAPDATA) to appropriate files using GTAP v7 nomenclature) and define the
+names for the output files (DATA and CHEK). The DATA file will contain an
+adjusted version of the BaseData adding headers with quantities that can be
+updated in an approprately adjusted model. Checks on the calculations are 
+written to the CHEK file.
+
+---  VERSION
+Version 1.0 (August 2023)
+
+---  CONTACT
+Marijke Kuiper (marijke.kuiper@wr.nl)
+!
+
+! == Logical file names for input data & output of results !
+!$include .\MBL_dbase\MBL_Files.gmp!
+
+! == Sets and mappings !
+!$include .\MBL_dbase\MBL_SetsMaps.gmp!
+
+! == Read standard GTAP headers needing adjustment !
+!$include .\MBL_dbase\MBL_ReadData.gmp!
+
+! == Compute quantities by removing taxes and international trade margins!
+!$include .\MBL_dbase\MBL_Quantities.gmp!
+
+! == Add quantities to database !
+!$include .\MBL_dbase\MBL_AddQuantities2Dbase.gmp!

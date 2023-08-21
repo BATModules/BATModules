@@ -1,0 +1,51 @@
+!============================================================================
+  File      : MBL_ReadData.gmp
+  Remarks   : Read standard GTAP v7 headers
+ =============================================================================!
+
+Coefficient (ge 0)(all,i,COMM)(all,j,ACTS)(all,r,REG) 
+  MAKES(i,j,r) # MAKE matrix at supply prices #;  
+  Read    MAKES from file GTAPDATA header "MAKS";
+Coefficient (ge 0)(all,i,COMM)(all,j,ACTS)(all,r,REG) 
+  MAKEB(i,j,r) # MAKE matrix at basic prices #;
+  Read    MAKEB from file GTAPDATA header "MAKB";
+
+Coefficient (ge 0)(all,i,COMM)(all,j,ACTS)(all,r,REG)
+  VDFB(i,j,r) # domestic purchases, by firms, at basic prices #;
+  Read   VDFB from file GTAPDATA header "VDFB";
+Coefficient (ge 0)(all,i,COMM)(all,j,ACTS)(all,r,REG)
+  VMFB(i,j,r) # import purchases, by firms, at basic prices #;
+  Read   VMFB from file GTAPDATA header "VMFB";
+
+Coefficient (ge 0)(all,i,COMM)(all,r,REG)
+  VDPB(i,r) # domestic purchases, by households, at basic prices #;
+  Read   VDPB from file GTAPDATA header "VDPB";
+ Coefficient (ge 0)(all,i,COMM)(all,r,REG)
+  VMPB(i,r) # import purchases, by households, at basic prices #;
+  Read   VMPB from file GTAPDATA header "VMPB";
+  
+Coefficient (ge 0)(all,i,COMM)(all,r,REG)
+  VDGB(i,r) # domestic purchases, by government, at basic prices #;
+  Read   VDGB from file GTAPDATA header "VDGB";
+Coefficient (ge 0)(all,i,COMM)(all,r,REG)
+  VMGB(i,r) # domestic purchases, by government, at basic prices #;
+  Read   VMGB from file GTAPDATA header "VMGB";
+  
+Coefficient (ge 0)(all,i,COMM)(all,r,REG)
+  VDIB(i,r)# domestic purchases, by investment, at basic prices #;
+  Read    VDIB from file GTAPDATA header "VDIB";
+Coefficient (ge 0)(all,i,COMM)(all,r,REG) 
+  VMIB(i,r)# import purchases, by investment, at basic prices #;
+  Read    VMIB from file GTAPDATA header "VMIB";
+  
+Coefficient (ge 0)(all,i,COMM)(all,r,REG)(all,s,REG)
+  VXSB(i,r,s) #non-margin exports, at basic prices#;
+  Read   VXSB from file GTAPDATA header "VXSB";
+
+Coefficient (ge 0)(all,m,MARG)(all,r,REG)
+  VST(m,r) # exprts of m from r for int'l trnsport at mkt p (tradeables only) #;
+  Read   VST from file GTAPDATA header "VST";
+Coefficient (ge 0) (all,m,MARG)(all,c,COMM)(all,s,REG)(all,d,REG)
+  VTMFSD(m,c,s,d)
+  # int'l margin usage, by margin, freight, source, and destination #;
+  Read VTMFSD from file GTAPDATA header "VTWR";

@@ -1,0 +1,15 @@
+!============================================================================
+  File     : MBL_Files.gmp
+ Remarks   : Defines logical files names for input data and results
+ =============================================================================!
+
+! Files with input data !
+File GTAPSETS # File with set specification #;
+File GTAPDATA # File containing all Base Data #;
+File XDATA # File with additional data #;
+File ACTDAT # File with data linked to production for footprints #;
+
+! Files wih results !
+File (new) MBAL # Regionalized material balances #;
+File (new) FOOTP # Footprint indicators #;
+File (new) CHEK # File with checks on calcualtions #;

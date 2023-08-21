@@ -1,0 +1,98 @@
+!============================================================================
+File      : MaterialBalances.gmp
+Remarks   : Update material flow coefficients for the material balances with 
+            quantity changes defined in the material balance module in the
+            database preparation step.
+ =============================================================================!
+
+! Update quantities!
+
+! = Production!
+Coefficient (all,c,COMM)(all,a,ACTS)(all,r,REG)
+ PROD_q(c,a,r) # Quantity produced of c by activity a in r (mil USD) #;
+ Read PROD_q from file GTAPDATA header "PQ_Q";
+ Update (all,c,COMM)(all,a,ACTS)(all,r,REG) 
+   PROD_q(c,a,r) = qca(c,a,r);
+
+! = Domestic demand !
+
+!   - Intermediates !
+Coefficient (all,c,COMM)(all,a,ACTS)(all,r,REG)  d_INT_q(c,a,r) 
+ # Quantity domestic intermediate demand for c by a in s (mil USD)#;
+ Read d_INT_q from file GTAPDATA header "DA_Q";
+ Update (all,c,COMM)(all,a,ACTS)(all,r,REG)
+   d_INT_q(c,a,r) = qfd(c,a,r);
+
+!   - Final demand, private household !
+Coefficient (all,c,COMM)(all,r,REG)  d_FINP_q(c,r) 
+ # Quantity domestic final private household demand for c in r (mil USD)#;
+ Read d_FINP_q from file GTAPDATA header "DP_Q";
+ Update (all,c,COMM)(all,r,REG)
+   d_FINP_q(c,r) = qpd(c,r);
+ 
+!   - Final demand, government !
+Coefficient (all,c,COMM)(all,r,REG)  d_FING_q(c,r) 
+ # Quantity domestic final government demand for c in r (mil USD)#;
+ Read d_FING_q from file GTAPDATA header "DG_Q";
+ Update (all,c,COMM)(all,r,REG)
+   d_FING_q(c,r) = qgd(c,r);
+
+!   - Final demand, investments! 
+Coefficient (all,c,COMM)(all,r,REG)  d_FINI_q(c,r) 
+ # Quantity domestic final investment demand for c in r (mil USD)#;
+ Read d_FINI_q from file GTAPDATA header "DI_Q";
+ Update (all,c,COMM)(all,r,REG)
+   d_FINI_q(c,r) = qid(c,r);
+
+! = Trade !
+Coefficient (all,c,COMM)(all,r,REG)(all,d,REG) TRADE_q(c,r,d)
+ # Quantity of c exported from r to d (mil USD) #;
+ Read TRADE_q from file GTAPDATA header "TR_Q";
+ Update (all,c,COMM)(all,r,REG)(all,d,REG) 
+   TRADE_q(c,r,d) = qxs(c,r,d);
+
+! = Import demand !
+
+!   - Intermediates !
+Coefficient (all,c,COMM)(all,a,ACTS)(all,d,REG) m_INT_q(c,a,d) 
+ # Quantity imported intermediate demand for c by a in d (mil USD)#;
+  Read m_INT_q from file GTAPDATA header "MA_Q";
+  Update (all,c,COMM)(all,a,ACTS)(all,d,REG)
+  m_INT_q(c,a,d) = qfm(c,a,d);
+ 
+!   - Final demand, private household !
+Coefficient (all,c,COMM)(all,d,REG) m_FINP_q(c,d) 
+ # Quantity imported private household demand for c in d (mil USD)#;
+ Read m_FINP_q from file GTAPDATA header "MP_Q";
+ Update (all,c,COMM)(all,d,REG)
+   m_FINP_q(c,d) = qpm(c,d);
+ 
+!   - Final demand, government !
+Coefficient (all,c,COMM)(all,d,REG)  m_FING_q(c,d) 
+ # Quantity imported government demand for c in d (mil USD)#;
+ Read m_FING_q from file GTAPDATA header "MG_Q";
+ Update (all,c,COMM)(all,d,REG)
+   m_FING_q(c,d) = qgm(c,d);
+
+!   - Final demand, investments! 
+Coefficient (all,c,COMM)(all,d,REG)  m_FINI_q(c,d) 
+ # Quantity imported investment demand for c in d (mil USD)#;
+ Read m_FINI_q from file GTAPDATA header "MI_Q";
+ Update (all,c,COMM)(all,d,REG)
+   m_FINI_q(c,d) = qim(c,d);
+
+! = Transport margin supply and demand!
+
+!   - Supply of margin commodities to global transport pool!
+Coefficient (all,m,MARG)(all,r,REG)  TRANSS_q(m,r)  
+ # Quantity int'l margin m supplied to global pool by r (mil USD)#;
+ Read TRANSS_q from file GTAPDATA header "TS_Q";
+ Update (all,m,MARG)(all,r,REG)  
+  TRANSS_q(m,r) = qst(m,r);
+
+!   - Demand for margin commodities from global transport pool!
+Coefficient (all,m,MARG)(all,c,COMM)(all,r,REG)(all,d,REG)  TRANSD_q(m,c,r,d)
+ # Quantity int'l margin demanded for imports of c in d from r (mil USD) #;
+  Read TRANSD_q from file GTAPDATA header "TD_Q";
+  Update (all,m,MARG)(all,c,COMM)(all,r,REG)(all,d,REG)  
+  TRANSD_q(m,c,r,d) = qtmfsd(m,c,r,d);

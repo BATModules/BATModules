@@ -1,0 +1,12 @@
+!============================================================================
+  File      : MBL_files.gmp
+  Remarks   : defines logical files names for input data and results
+ =============================================================================!
+
+! Files with input data !
+File GTAPSETS # File with set specification #;
+File GTAPDATA # File containing all Base Data #;
+
+! Files wih results !
+File (new) DATA # GTAP basedata file expanded with quantity headers #;
+File (new) CHEK # File with checks on calculations #;

@@ -1,0 +1,686 @@
+!
+=== Regionalized material balances and footprint data from a GTAP database ====
+
+--- PURPOSE
+Derives regionalized material balances tracing production from producers to
+final destinations. These first of all serve as a check on the
+reference year or projected quantities in case of updated databases. 
+
+The second purpose is to provide data suitable for use in a Leontief inverse 
+calculation of direct and indirect flows through global supply chains. The 
+Leontief inverse is used to compute the shares of commodity i produced in region
+p in final demand by households, government and investment in
+region d cosnumed through commodities c produced in region s. Multiplication of
+these shares with characterisics of product i from p (like production in
+phsyical units or land use) provides a consistent tracing of materials or other
+footrpints of production through global supplyc chains to final demand. 
+
+---  USE 
+Provide a cmf file that links the logical file names in this code (GTAPSETS
+and GTAPDATA) to files containing standard GTAPagg headers (v7 
+nomenclature). in addition to the standard GTAP-style inputs extra data need
+to be provided to (1) split activity in case of joint ptoduction (optional - if
+not provided value-based shares are used) and (2) the maximum deviation of the
+computed Leontief inverse.
+
+Output is split over different files as matrices can be very large in
+full-fledge models. Material balance entries are stored in the MBAL file and
+data needed to compute footprints in the FOOTP file. Checks are stored in a
+separte
+CHEK file. 
+
+---  WARNING 
+In case of a nearly singular matrix the Leontief inversion may fail. This can
+be detected by checking the product of the orginal and inverted matrix, which
+should equal the identity matrix. A check is imposed through an assertion
+forcing an error if there is too much deviation from the identity matrix. 
+
+
+---  ACKNOWLEDGMENT
+The code for inverting the Leontief matrix is an adaption of GEMPACK code for
+matrix inversion provdided by COPS at https://www.copsmodels.com/gp-inv2.htm. 
+
+---  VERSION
+Version 1.0 (August 2023)
+
+---  CONTACT
+Marijke Kuiper (marijke.kuiper@wur.nl)
+!
+
+
+! == Logical file names for input data & output of results !
+!============================================================================
+  File     : MBL_Files.gmp
+ Remarks   : Defines logical files names for input data and results
+ =============================================================================!
+
+! Files with input data !
+File GTAPSETS # File with set specification #;
+File GTAPDATA # File containing all Base Data #;
+File XDATA # File with additional data #;
+File ACTDAT # File with data linked to production for footprints #;
+
+! Files wih results !
+File (new) MBAL # Regionalized material balances #;
+File (new) FOOTP # Footprint indicators #;
+File (new) CHEK # File with checks on calcualtions #;
+
+
+! == Sets and mappings !
+!============================================================================
+ File      : MBL_SetsMaps.gmp
+ Remarks   : Standard GTAP sets + new sets used in post-sim calculations
+ =============================================================================!
+
+!Region Standard GTAP sets!
+
+Set REG # Regions in the model #
+  Read elements from file GTAPSETS header "REG";
+Set COMM # Traded commodities (including split sectors) #
+  Read elements from file GTAPSETS header "COMM";
+Set MARG # margin commodities #
+    read elements from file GTAPSETS header "MARG";
+Subset MARG is subset of COMM;
+Set NMARG # non-margin commodities # = COMM - MARG;   
+Set ACTS # Sectors producing traded commodities #
+  Read elements from file GTAPSETS header "ACTS";
+  Subset ACTS is subset of COMM;
+
+!EndRegion!
+
+!Region Additional sets and mappings for footprints!
+
+! Mapping to construct 2 dimensional Leontief matrix for inversion!
+Set COMREG # Regionalized commodities # = COMM x REG;
+Mapping (project) COMREG2REG from COMREG to REG;
+Mapping (project) COMREG2COMM from COMREG to COMM;
+
+Set FDEM # Final demand categories # (phh,gvt,inv);
+Set FPRNT_A # Footprint indicators at activity level #
+  read elements from file ACTDAT header "SFPA";
+Set FPRNT_I # Footprint indicators at intermediate level #
+  read elements from file ACTDAT header "SFPI";
+Set FPRNT # Set of footprint indicators # = FPRNT_A + FPRNT_I;
+! note that + enforces sets to be disjoint - so footprints are eiher defined at
+activity or at intermediate input level !
+
+Set CHNL # Channels through which products flow to final demand #
+ read elements from file ACTDAT header "CHNL";
+Mapping COMM2CHNL from COMM to CHNL;
+ Read (by_elements) COMM2CHNL from file ACTDAT header "MC2C";
+
+Set FDCAT # Grouping of final demand categories #
+ read elements from file ACTDAT header "FDCT";
+Mapping FDEM2FDCAT from FDEM to FDCAT;
+ Read (by_elements) FDEM2FDCAT from file ACTDAT header "MD2F";
+
+!EndRegion!
+
+
+! == Read headers with quantities !
+!============================================================================
+  File      : MBL_ReadData.gmp
+  Remarks   : Read data holding quantities
+ =============================================================================!
+
+! Make matrix (for value shares)!
+Coefficient (parameter) (all,c,COMM)(all,a,ACTS)(all,r,REG)  
+    MAKEB(c,a,r) # 'make' matrix valued at basic prices #;
+   Read  MAKEB from file GTAPDATA header "MAKB";
+
+! = Production!
+Coefficient (parameter)  (all,c,COMM)(all,a,ACTS)(all,r,REG)
+ PROD_q(c,a,r) # Quantity produced of c by activity a in r (mil USD) #;
+ Read PROD_q from file GTAPDATA header "PQ_Q";
+
+! = Domestic demand !
+
+!   - Intermediates !
+Coefficient (parameter)  (all,c,COMM)(all,a,ACTS)(all,r,REG)  d_INT_q(c,a,r) 
+ # Quantity domestic intermediate demand for c by a in s (mil USD)#;
+ Read d_INT_q from file GTAPDATA header "DA_Q";
+
+!   - Final demand, private household !
+Coefficient (parameter)  (all,c,COMM)(all,r,REG)  d_FINP_q(c,r) 
+ # Quantity domestic final private household demand for c in r (mil USD)#;
+ Read d_FINP_q from file GTAPDATA header "DP_Q";
+ 
+!   - Final demand, government !
+Coefficient (parameter)  (all,c,COMM)(all,r,REG)  d_FING_q(c,r) 
+ # Quantity domestic final government demand for c in r (mil USD)#;
+ Read d_FING_q from file GTAPDATA header "DG_Q";
+
+!   - Final demand, investments! 
+Coefficient (parameter)  (all,c,COMM)(all,r,REG)  d_FINI_q(c,r) 
+ # Quantity domestic final investment demand for c in r (mil USD)#;
+ Read d_FINI_q from file GTAPDATA header "DI_Q";
+
+! = Trade !
+Coefficient (parameter)  (all,c,COMM)(all,r,REG)(all,d,REG) TRADE_q(c,r,d)
+ # Quantity of c exported from r to d (mil USD) #;
+ Read TRADE_q from file GTAPDATA header "TR_Q";
+
+! = Import demand !
+
+!   - Intermediates !
+Coefficient (parameter)  (all,c,COMM)(all,a,ACTS)(all,d,REG) m_INT_q(c,a,d) 
+ # Quantity imported intermediate demand for c by a in d (mil USD)#;
+  Read m_INT_q from file GTAPDATA header "MA_Q";
+ 
+!   - Final demand, private household !
+Coefficient (parameter)  (all,c,COMM)(all,d,REG) m_FINP_q(c,d) 
+ # Quantity imported private household demand for c in d (mil USD)#;
+ Read m_FINP_q from file GTAPDATA header "MP_Q";
+ 
+!   - Final demand, government !
+Coefficient (parameter)  (all,c,COMM)(all,d,REG)  m_FING_q(c,d) 
+ # Quantity imported government demand for c in d (mil USD)#;
+ Read m_FING_q from file GTAPDATA header "MG_Q";
+
+!   - Final demand, investments! 
+Coefficient (parameter)  (all,c,COMM)(all,d,REG)  m_FINI_q(c,d) 
+ # Quantity imported investment demand for c in d (mil USD)#;
+ Read m_FINI_q from file GTAPDATA header "MI_Q";
+
+! = Transport margin supply and demand!
+
+!   - Supply of margin commodities to global transport pool!
+Coefficient (parameter)  (all,m,MARG)(all,r,REG)  TRANSS_q(m,r)  
+ # Quantity int'l margin m supplied to global pool by r (mil USD)#;
+ Read TRANSS_q from file GTAPDATA header "TS_Q";
+
+!   - Demand for margin commodities from global transport pool!
+Coefficient (parameter)  (all,m,MARG)(all,c,COMM)(all,r,REG)(all,d,REG)
+ TRANSD_q(m,c,r,d)
+ # Quantity int'l margin demanded for imports of c in d from r (mil USD) #;
+  Read TRANSD_q from file GTAPDATA header "TD_Q";
+
+
+! == Construct regoinalized material balances !
+!============================================================================
+  File      : MBL_ConstructBalances.gmp
+  Remarks   : Construct regionalized material balances using data on quantiites
+              produced and demanded
+ =============================================================================!
+
+!Region Allocate activity intermediate demand to commodities !
+
+! Activity accounts need to be split in case of by-products. Default split is 
+  value-based (computed from baseedata). Can be replaced by user-defined split 
+  read from file if provided.!
+
+!Value-shares of commodities in intermediate input use - no differentiation by
+inputs !
+Coefficient (parameter) (all,c,COMM)(all,a,ACTS)(all,r,REG) 
+ VAL_SHR(c,a,r) # Commodity share in activity a input use  in r #;
+  !Initialize split on make matrix - value shares!
+ Formula (initial) (all,c,COMM)(all,a,ACTS)(all,r,REG) 
+ VAL_SHR(c,a,r) = MAKEB(c,a,r)/sum{cc,COMM,MAKEB(cc,a,r)};
+  
+Coefficient (parameter) (all,c,COMM)(all,i,COMM)(all,a,ACTS)(all,r,REG) 
+ COMM_SHR(c,i,a,r) # Commodity share c in inputs i used by activity a in r #;
+ Formula (initial) (all,c,COMM)(all,i,COMM)(all,a,ACTS)(all,r,REG) 
+ COMM_SHR(c,i,a,r) = VAL_SHR(c,a,r);
+ !Write to check file so can serve as template for custom shares!
+ Write COMM_SHR to file CHEK header "VBCS";
+
+!Allow user-defined shares to change allocation of inputs!
+Read(IfHeaderExists) COMM_SHR from file XDATA header "CSHR";
+
+!EndRegion!
+
+!Region Define components of material balance equations !
+
+!Define coefficients for material balance equations in quantity terms
+   production (Q) = intermediate demand (I) + final demand (F)!
+
+! == Define coefficients to construct the material balance!
+Coefficient 
+(all,i,COMM)(all,s,REG)  Q_q(i,s) 
+  # Quantity of production by commodity i and region s (mil USD)#;
+(all,i,COMM)(all,s,REG)(all,c,COMM)(all,d,REG) I_q(i,s,c,d) 
+  # Intermediate demand for i from s by commodity c in region d (mil USD) #;
+(all,i,COMM)(all,s,REG)(all,d,REG) FP_q(i,s,d) 
+  # Final demand for i from s by private household in region d (mil USD) #;
+(all,i,COMM)(all,s,REG)(all,d,REG) FG_q(i,s,d) 
+  # Final demand for i from s by government in region d (mil USD) #;
+(all,i,COMM)(all,s,REG)(all,d,REG) FI_q(i,s,d) 
+  # Final demand for i from s by investment in region d (mil USD) #;
+  
+! == Total demand for imports from demand - assures that shares sum to 1 !
+Coefficient (all,i,COMM)(all,d,REG)
+ m_TOT_q(i,d) # Total demand for imports i in destination region d (mil. USD)#;
+ Formula (all,i,COMM)(all,d,REG)
+ m_TOT_q(i,d) = sum{a,ACTS, m_INT_q(i,a,d)} + m_FINP_q(i,d) + m_FING_q(i,d) 
+              + m_FINI_q(i,d);
+
+! == Fill production!
+ Formula (all,i,COMM)(all,s,REG)
+ Q_q(i,s) = sum{a,ACTS, PROD_Q(i,a,s)};
+
+
+!Region Fill for non-margin deamnd ! 
+
+! == Fill intermediate demand!
+! ---- imports!
+Formula (all,i,COMM)(all,s,REG)(all,c,COMM)(all,d,REG)
+  I_q(i,s,c,d) = TRADE_q(i,s,d) 
+   * sum{a,ACTS, COMM_SHR(c,i,a,d) * m_INT_q(i,a,d)} / m_TOT_q(i,d);
+! ---- domestic (allowing for self-trade)!               
+Formula (all,i,COMM)(all,c,COMM)(all,d,REG)
+  I_q(i,d,c,d) =  I_q(i,d,c,d) 
+               + sum{a,ACTS, COMM_SHR(c,i,a,d) * d_INT_q(i,a,d)};
+
+! == Fill final demand from private household!
+! ---- imports!
+Formula (all,i,COMM)(all,s,REG)(all,d,REG)
+  FP_q(i,s,d) = TRADE_q(i,s,d) * m_FINP_q(i,d) / m_TOT_q(i,d);
+! ---- domestic (allowing for self-trade)!               
+Formula (all,i,COMM)(all,d,REG)
+  FP_q(i,d,d) =  FP_q(i,d,d) + d_FINP_q(i,d);
+
+! == Fill final demand from government!
+! ---- imports!
+Formula (all,i,COMM)(all,s,REG)(all,d,REG)
+  FG_q(i,s,d) = TRADE_q(i,s,d) * m_FING_q(i,d) / m_TOT_q(i,d);
+! ---- domestic (allowing for self-trade)!               
+Formula (all,i,COMM)(all,d,REG)
+  FG_q(i,d,d) =  FG_q(i,d,d) + d_FING_q(i,d);
+
+! == Fill final demand from investment!
+! ---- imports!
+Formula (all,i,COMM)(all,s,REG)(all,d,REG)
+  FI_q(i,s,d) = TRADE_q(i,s,d) * m_FINI_q(i,d) / m_TOT_q(i,d);
+! ---- domestic (allowing for self-trade)!               
+Formula (all,i,COMM)(all,d,REG)
+  FI_q(i,d,d) =  FI_q(i,d,d) + d_FINI_q(i,d);
+
+!EndRegion!
+
+!Region Allocate international margins & add to demand !
+
+! Allocate international margins supplied to the global transpot pool by using
+  the share of supplying rgeions t in total transport and allocating the demand
+  for international margins linked to imports of c from from s based on the
+  share of each demand category in total imports of c from s. Result is then
+  summed over c and set to get the (indiretc) imports of margins m from
+  transporter region t by the demand categories in d.
+!
+
+Coefficient (all,m,MARG)(all,t,REG)(all,c,COMM)(all,d,REG)  m_I_TRNS(m,t,c,d)
+  # Int'l transport margins from s for intermediate use by c in d (mil. USD) #;
+  Formula (all,m,MARG)(all,t,REG)(all,c,COMM)(all,d,REG)  
+  m_I_TRNS(m,t,c,d) = sum{i,COMM, sum{s,REG,
+  ! regional share of transporter t in supply of margin m to global pool !
+  [TRANSS_q(m,t)/sum{tt,REG,TRANSS_q(m,tt)} ] 
+  ! demand category share in total imports of commodity i !
+  * sum{a,ACTS, COMM_SHR(c,i,a,d) * m_INT_q(i,a,d)} / m_TOT_q(i,d)
+  ! international margins demanded for imports of commodity i from s!
+  * TRANSD_q(m,i,s,d)}};
+  
+Coefficient (all,m,MARG)(all,t,REG)(all,d,REG)  m_FP_TRNS(m,t,d)
+  # Int'l transport margins from t for private hh imports in d (mil. USD) #;
+  Formula (all,m,MARG)(all,t,REG)(all,d,REG)  
+   m_FP_TRNS(m,t,d) = sum{i,COMM, sum{s,REG,
+  ! regional share of transporter t in supply of margin m to global pool !
+  [TRANSS_q(m,t)/sum{tt,REG,TRANSS_q(m,tt)} ] 
+  ! demand category share in total imports of commodity i !
+  * m_FINP_q(i,d) / m_TOT_q(i,d)
+  ! international margins demanded for imports of commodity i from s!
+  * TRANSD_q(m,i,s,d)}};
+
+Coefficient (all,m,MARG)(all,t,REG)(all,d,REG)  m_FG_TRNS(m,t,d)
+  # Int'l transport margins from t for government imports in d (mil. USD) #;
+  Formula (all,m,MARG)(all,t,REG)(all,d,REG)  
+   m_FG_TRNS(m,t,d) = sum{i,COMM, sum{s,REG,
+  ! regional share of transporter t in supply of margin m to global pool !
+  [TRANSS_q(m,t)/sum{tt,REG,TRANSS_q(m,tt)} ] 
+  ! demand category share in total imports of commodity i !
+  * m_FING_q(i,d) / m_TOT_q(i,d)
+  ! international margins demanded for imports of commodity i from s!
+  * TRANSD_q(m,i,s,d)}};
+
+Coefficient (all,m,MARG)(all,t,REG)(all,d,REG)  m_FI_TRNS(m,t,d)
+  # Int'l transport margins from t for investment imports in d (mil. USD) #;
+  Formula (all,m,MARG)(all,t,REG)(all,d,REG)  
+   m_FI_TRNS(m,t,d) = sum{i,COMM, sum{s,REG,
+  ! regional share of transporter t in supply of margin m to global pool !
+  [TRANSS_q(m,t)/sum{tt,REG,TRANSS_q(m,tt)} ] 
+  ! demand category share in total imports of commodity i !
+  * m_FINI_q(i,d) / m_TOT_q(i,d)
+  ! international margins demanded for imports of commodity i from s!
+  * TRANSD_q(m,i,s,d)}};
+
+! Add this indirect demand for transport services to the direct demand already
+  computed above!
+  
+Formula (all,m,MARG)(all,s,REG)(all,c,COMM)(all,d,REG)
+  I_q(m,s,c,d) = I_q(m,s,c,d) + m_I_TRNS(m,s,c,d);
+Formula (all,m,MARG)(all,s,REG)(all,d,REG)
+  FP_q(m,s,d) = FP_q(m,s,d) +  m_FP_TRNS(m,s,d);
+Formula (all,m,MARG)(all,s,REG)(all,d,REG)
+  FG_q(m,s,d) = FG_q(m,s,d) +  m_FG_TRNS(m,s,d);
+Formula (all,m,MARG)(all,s,REG)(all,d,REG)
+  FI_q(m,s,d) = FI_q(m,s,d) +  m_FI_TRNS(m,s,d);
+
+!EndRegion!
+
+!EndRegion!
+
+!Region Check if material balances hold!
+
+! Compute total demand for i from s over all demand categories!
+Coefficient (all,i,COMM)(all,s,REG)
+ TOTDEM_q(i,s) # Total demand for commodity i from s (mil USD) #;
+ Formula (all,i,COMM)(all,s,REG)
+ TOTDEM_q(i,s) = sum{d,REG, sum{c,COMM, I_q(i,s,c,d)} 
+               + FP_q(i,s,d) + FG_q(i,s,d) + FI_q(i,s,d)};
+
+! Compute slack on material balances in precentages as quantities produced vary
+ widely !
+Coefficient (all,i,COMM)(all,s,REG)  SLACK_p(i,s) 
+  # Slack or imbalance in material flows for commodity i from s (%) #;
+ Formula (all,i,COMM)(all,s,REG)  
+ SLACK_p(i,s) = 100 * [TOTDEM_q(i,s) / Q_q(i,s) -1];
+
+!EndRegion!
+
+!Region Scale demand categories to quantity produced!
+
+! We trust changes in production most as here maximum one CET in case of joint
+  production. Redistribute slack over demand categories to not bias relative 
+  amounts!
+
+Coefficient (all,i,COMM)(all,s,REG)(all,c,COMM)(all,d,REG) s_I_q(i,s,c,d) 
+  # Scaled interm. demand for i from s by commodity c in region d (mil USD) #;
+  Formula (all,i,COMM)(all,s,REG)(all,c,COMM)(all,d,REG) 
+  s_I_q(i,s,c,d) = [Q_q(i,s)/TOTDEM_q(i,s)] * I_q(i,s,c,d);
+  
+Coefficient (all,i,COMM)(all,s,REG)(all,d,REG) s_FP_q(i,s,d) 
+  # Scaled final demand for i from s by private hh in region d (mil USD) #;
+  Formula (all,i,COMM)(all,s,REG)(all,d,REG) 
+  s_FP_q(i,s,d) = [Q_q(i,s)/TOTDEM_q(i,s)] * FP_q(i,s,d);
+  
+Coefficient (all,i,COMM)(all,s,REG)(all,d,REG) s_FG_q(i,s,d) 
+  # Scaled final demand for i from s by government in region d (mil USD) #;
+  Formula (all,i,COMM)(all,s,REG)(all,d,REG) 
+  s_FG_q(i,s,d) = [Q_q(i,s)/TOTDEM_q(i,s)] * FG_q(i,s,d);
+  
+  
+Coefficient (all,i,COMM)(all,s,REG)(all,d,REG) s_FI_q(i,s,d) 
+  # Scaled final demand for i from s by investment in region d (mil USD) #;
+  Formula (all,i,COMM)(all,s,REG)(all,d,REG) 
+  s_FI_q(i,s,d) = [Q_q(i,s)/TOTDEM_q(i,s)] * FI_q(i,s,d);
+  
+!EndRegion!
+
+!Region Write material balance variables!
+
+! Material balance components!
+Write Q_q to file MBAL header "Q_Q";
+Write s_I_q to file MBAL header "SI_Q";
+Write s_FP_q to file MBAL header "SFPQ";
+Write s_FG_q to file MBAL header "SFGQ";
+Write s_FI_q to file MBAL header "SFIQ";
+
+! Slack on material balance written to check file!
+Write SLACK_p to file CHEK header "SLCK";
+
+!EndRegion!
+
+
+
+! == Derive Leontief inverse !
+!============================================================================
+  File     : MBL_InvertLeontief.gmp
+ Remarks   : Compute the Leontief inverse matrix
+ =============================================================================!
+
+!Region Create matrix of technical coefficients!
+
+ZeroDivide (NONZERO_BY_ZERO) default 0; 
+ZeroDivide (ZERO_BY_ZERO) default 0; 
+
+Coefficient (all,i,COMM)(all,s,REG)(all,c,COMM)(all,d,REG)  s_IO_q(i,s,c,d) 
+ #IO coeff.(qtity): use of i from region s when producing comm. c in region d#;
+  Formula (all,i,COMM)(all,s,REG)(all,c,COMM)(all,d,REG)
+  s_IO_q(i,s,c,d) = s_I_q(i,s,c,d) / Q_q(c,d); 
+ZeroDivide off;
+
+!== Map technical coefficients into 2-dimensopnal matrix for inversion!
+Coefficient (all,i,COMREG)(all,j,COMREG)  IO(i,j) 
+ # Input-output coefficients for production in region d with inputs from s #;
+ Formula (all,i,COMREG)(all,j,COMREG)
+ IO(i,j) = s_IO_q(COMREG2COMM(i),COMREG2REG(i),COMREG2COMM(j),COMREG2REG(j));
+
+!EndRegion!
+
+!Region Compute the Leontief inverse!
+
+!== Initialize maximum deviation from identity matrix as check on inversion !
+Coefficient(parameter) 
+ IM_DIF_max # Maximum (absolute) deviation from identity matrix #;
+ Read IM_DIF_max from file XDATA header "DMAX";
+
+Coefficient (all,i,COMREG)(all,k,COMREG) 
+  IM(i,k) # Identity matrix #;
+  Formula(initial)(all,i,COMREG)(all,k,COMREG) IM(i,k) = 0;
+  Formula(initial)(all,i,COMREG)(all,k,COMREG) IM(i,k) = if(i eq k, 1);
+  Update(change)  (all,i,COMREG)(all,k,COMREG) IM(i,k) = 0; 
+! Update is needed as defined in two steps ( (1) set to 0 and then (2) fill 
+  diagonal with 1 and thus cannot be defined as a parameter!
+ 
+Coefficient(parameter) (all,i,COMREG)(all,j,COMREG) 
+ I_IO(i,j) # Identity - IO matrix that needs to be inverted #;
+ Formula(initial)  (all,i,COMREG)(all,j,COMREG) 
+ I_IO(i,j) = IM(i,j) - IO(i,j);
+
+! === Variables & equation !
+
+Variable (change) (all,j,COMREG)(all,k,COMREG) 
+ L(j,k) # Inverse Leontief matrix #;
+Variable (change) dummy # Dummy unit shock #;
+
+Equation E_L (all,i,COMREG)(all,k,COMREG)
+   sum{j,COMREG, I_IO(i,j)*L(j,k)} = IM(i,k)*dummy;
+! During the one-step simulation, dummy is shocked by 1
+  After the sim, dummy is 1 so the variable L is the inverse of the matrix I_IO 
+  since the linearised equation is (in matrix notation) I_IO* L = IM !
+
+!EndRegion!
+
+!Region Post-simulation checks!
+Postsim (begin);
+
+Coefficient  (all,i,COMREG)(all,k,COMREG)  CHK_INV(i,k)
+ # Check on Leontief inversion - should be close to identity matrix#;
+Formula (all,i,COMREG)(all,k,COMREG) 
+ CHK_INV(i,k) = sum{j,COMREG, I_IO(i,j)*L(j,k)};
+  
+! Define assertion to generate error in case of faulty inversion!
+Coefficient IM_DIF # Difference from identity matrix #;
+ Formula IM_DIF = sum{i,COMREG, sum{k, COMREG, abs{CHK_INV(i,k) - IM(i,k)}}};
+Assertion # Inversion seems failed due to singular matrix #
+  IM_DIF < IM_DIF_max;
+! Arbitrary boundary - meant as warning to carefully check results. 
+  Can proceed if exceeded by setting assertions to warnings in CMF file!
+
+Write  CHK_INV to file CHEK header "CHKI";
+
+Postsim (end);
+!EndRegion!
+
+
+
+! As we solve a model to derive Leontief all subsequent calculations are
+  post-sim!
+Postsim (begin);
+
+! == Derive production shares in final demand !
+!============================================================================
+  File      : MBL_ProductionShares.gmp
+  Remarks   : Use the Leontief inverse to compute contents of consumed
+              commodities and derive production shares
+ =============================================================================!
+
+!Region Data preparation!
+
+! === Split combined indices in Leontief inverse! 
+Coefficient (all,i,COMM)(all,s,REG)(all,c,COMM)(all,d,REG)
+ LI(i,s,c,d) 
+ # Quantity-based Leontief inverse  i from s in final demand c in d #;
+ Formula  (all,i,COMM)(all,s,REG)(all,c,COMM)(all,d,REG)
+ LI(i,s,c,d) = sum{jj,COMREG:(COMREG2COMM(jj)=c) AND (COMREG2REG(jj)=d), 
+   sum{ii,COMREG:(COMREG2COMM(ii)=i) AND (COMREG2REG(ii)=s), 
+   L(ii,jj)}};
+
+!EndRegion!
+
+!Region Production required for final demand by agent !
+
+!Leontief inverse specifies the amounnt of production i from region p needed
+for final demand of c in s. Multiplying this with the final demand for c from s
+by final demand categories from d provides full description of how products
+flow from p via s to final demand in d. We combine the final demand categories
+in a single set to create a single matrix!
+
+Coefficient 
+(all,i,COMM)(all,p,REG)(all,c,COMM)(all,s,REG)(all,f,FDEM)(all,d,REG)
+ Q2FD(i,p,c,s,f,d) 
+ # Production i in p for final demand in d via cons. of c from s (mil USD)#;
+ Formula (all,i,COMM)(all,p,REG)(all,c,COMM)(all,s,REG)(all,f,FDEM)(all,d,REG)
+   Q2FD(i,p,c,s,f,d) = 0; 
+ Formula (all,i,COMM)(all,p,REG)(all,c,COMM)(all,s,REG)(all,d,REG)
+   Q2FD(i,p,c,s,"phh",d) = LI(i,p,c,s) * s_FP_q(c,s,d); 
+ Formula (all,i,COMM)(all,p,REG)(all,c,COMM)(all,s,REG)(all,d,REG)
+   Q2FD(i,p,c,s,"gvt",d) = LI(i,p,c,s) * s_FG_q(c,s,d); 
+ Formula (all,i,COMM)(all,p,REG)(all,c,COMM)(all,s,REG)(all,d,REG)
+   Q2FD(i,p,c,s,"inv",d) = LI(i,p,c,s) * s_FI_q(c,s,d); 
+ 
+ 
+! This provides the full matrix of how production of i in region p flows to
+final demand categories in d. Based on the Leontief inverse it captures all
+direct
+and indirect flows through the global economy. Of these flows only the producer
+location (p) and final commodity (c) source region (s) are made explicit in
+tracing how commodity i from region p arrives in final consumption of c from s
+by agent a located in region d. It can serve to derive more manageable subset of
+flows like  direct and indirect flows of primary products etc. 
+
+NB summming over all c,s,d and f should equal the production i in p
+(requirement of the material balance that the demand for each commodity (direct
++ indirect) has to equal production.
+
+As matrix inversion is less numerically accurate than solving system of
+equations there will be deviations. Given larg differences in size of sectors
+we express this check in percentage tems !
+
+Coefficient (all,i,COMM)(all,p,REG)  
+ chk_FDq(i,p) # Difference beteen sum of demand and production (%) #;
+ Formula (all,i,COMM)(all,p,REG)  
+ chk_FDq(i,p) = 100 * 
+        [sum{c,COMM, sum{s,REG, sum{d,REG,sum{f, FDEM,Q2FD(i,p,c,s,f,d)}}}}
+       / Q_q(i,p) - 1];
+       
+ ! === Express final demand as shares!
+
+! To ease the introduction of for example biophysical quantities we express
+  material flows in shares. This also takes care of any slacks due to
+  imprecision in the matrix inversion. !
+ 
+Coefficient 
+(all,i,COMM)(all,p,REG)(all,c,COMM)(all,s,REG)(all,f,FDEM)(all,d,REG)
+ FD_shr(i,p,c,s,f,d) 
+ #Shares final demand in d for produced i from p via consumption of c from d #;
+ Formula (all,i,COMM)(all,p,REG)(all,c,COMM)(all,s,REG)(all,f,FDEM)(all,d,REG)
+ FD_shr(i,p,c,s,f,d) =  Q2FD(i,p,c,s,f,d) / 
+ [sum{cc,COMM, sum{ss,REG, sum{dd,REG,sum{ff,FDEM,Q2FD(i,p,cc,ss,ff,dd)}}}}];
+
+!EndRegion!
+
+!Region Write results!
+
+Write LI to file FOOTP header "LI";
+Write FD_shr to file FOOTP header "FD_S";
+Write chk_FDq to file CHEK header "CQFD";
+
+!EndRegion!
+
+! == Compute footprint indicators !
+!============================================================================
+  File      : MBL_Footprints.gmp
+  Remarks   : Combine shares in production by final demand category with actvity
+              chracateristics to compute footprint indicators. 
+ =============================================================================!
+
+!  === Read data on foot print indicators!
+
+! Cannot read from file in post-sim after initialization so short intermezzo! 
+Postsim (end);
+
+Coefficient (parameter)(all,n,FPRNT_A)(all,a,ACTS)(all,p,REG) 
+  A_FPRINT(n,a,p)  # Activity level footprints (various units) #;
+  Read (IfHeaderExists) A_FPRINT from file ACTDAT header "A_FP";
+ 
+Coefficient (parameter) (all,n,FPRNT_I)(all,k,COMM)(all,a,ACTS)(all,p,REG) 
+  I_FPRINT(n,k,a,p)  # Intermediate input level footprints (various units) #;
+  Read (IfHeaderExists) I_FPRINT from file ACTDAT header "I_FP";
+
+Postsim (begin);
+  
+! === Compute footprint indicator!
+
+! Combine footprint data in single header!
+! - To avoid double counting of activity level footprint data we assign these to
+    the first commodity which is then summed away!
+Set ONECOMM = (all,k,COMM: $pos(k)=1);
+
+Coefficient (all,n,FPRNT)(all,i,COMM)(all,p,REG)(all,g,CHNL)(all,s,REG)
+  (all,t,FDCAT)(all,d,REG)  FOOTP_RAW(n,i,p,g,s,t,d) 
+#Footprint n for i produced in p by channel in s and final demand cat t in d#;
+Formula (all,n,FPRNT)(all,i,COMM)(all,p,REG)(all,g,CHNL)(all,s,REG)
+  (all,t,FDCAT)(all,d,REG)  
+   FOOTP_RAW(n,i,p,g,s,t,d) = 0;
+
+!  - Assign activity footprints to produced commodities!
+Formula (all,n,FPRNT_A)(all,i,COMM)(all,p,REG)(all,g,CHNL)(all,s,REG)
+  (all,t,FDCAT)(all,d,REG) FOOTP_RAW(n,i,p,g,s,t,d) = 
+  ! aggregate commodities to channels!
+  sum{c,COMM:COMM2CHNL(c) eq g,
+  ! aggregate final dmand to final demand categories !
+  sum{f,FDEM:FDEM2FDCAT(f) eq t,
+  !share of i in consumption by final demand category!
+  FD_shr(i,p,c,s,f,d) * 
+  ! footptints by activity allocated to produced commodities!
+  [sum{a,ACTS, sum{k,ONECOMM, COMM_SHR(i,k,a,p) * A_FPRINT(n,a,p)}}]}};
+
+!  - Assign intermediate input footprints to produced commodities!
+Formula (all,n,FPRNT_I)(all,i,COMM)(all,p,REG)(all,g,CHNL)(all,s,REG)
+  (all,t,FDCAT)(all,d,REG) FOOTP_RAW(n,i,p,g,s,t,d) = 
+  ! aggregate commodities to channels!
+  sum{c,COMM:COMM2CHNL(c) eq g,
+  ! aggregate final dmand to final demand categories !
+  sum{f,FDEM:FDEM2FDCAT(f) eq t,
+  !share of i in consumption by final demand category!
+  FD_shr(i,p,c,s,f,d) * 
+  ! footptints by intermediate inputs allocated to produced commodities!
+  [sum{a,ACTS, sum{k,COMM, COMM_SHR(i,k,a,p) * I_FPRINT(n,k,a,p)}}]}};
+  
+            
+! --- Define produced commodities with footprint data!
+Set FPCOMM # Produced commodities with footprint data #
+    =(all,i,COMM:sum{n,FPRNT, sum{p,REG, sum{g,CHNL, sum{s,REG, sum{t,FDCAT,
+                 sum{d,REG, FOOTP_RAW(n,i,p,g,s,t,d)}}}}}} <> 0);
+
+! --- Apply filter to remove commodities in i with no footprint data!
+Coefficient (all,n,FPRNT)(all,i,FPCOMM )(all,p,REG)(all,g,CHNL)(all,s,REG)
+  (all,t,FDCAT)(all,d,REG)  FOOTP_FD(n,i,p,g,s,t,d) 
+#Footprint n of i produced in p by channel g in s and final demand cat t in d#;
+Formula (all,n,FPRNT)(all,i,FPCOMM )(all,p,REG)(all,g,CHNL)(all,s,REG)
+  (all,t,FDCAT)(all,d,REG)  
+   FOOTP_FD(n,i,p,g,s,t,d) = FOOTP_RAW(n,i,p,g,s,t,d);
+   
+! === Write footprint data!
+Write FOOTP_FD to file FOOTP header "FPFD";
+
+Postsim (end);

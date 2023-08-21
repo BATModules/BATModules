@@ -1,0 +1,48 @@
+!============================================================================
+ File      : MBL_SetsMaps.gmp
+ Remarks   : Standard GTAP sets + new sets used in post-sim calculations
+ =============================================================================!
+
+!Region Standard GTAP sets!
+
+Set REG # Regions in the model #
+  Read elements from file GTAPSETS header "REG";
+Set COMM # Traded commodities (including split sectors) #
+  Read elements from file GTAPSETS header "COMM";
+Set MARG # margin commodities #
+    read elements from file GTAPSETS header "MARG";
+Subset MARG is subset of COMM;
+Set NMARG # non-margin commodities # = COMM - MARG;   
+Set ACTS # Sectors producing traded commodities #
+  Read elements from file GTAPSETS header "ACTS";
+  Subset ACTS is subset of COMM;
+
+!EndRegion!
+
+!Region Additional sets and mappings for footprints!
+
+! Mapping to construct 2 dimensional Leontief matrix for inversion!
+Set COMREG # Regionalized commodities # = COMM x REG;
+Mapping (project) COMREG2REG from COMREG to REG;
+Mapping (project) COMREG2COMM from COMREG to COMM;
+
+Set FDEM # Final demand categories # (phh,gvt,inv);
+Set FPRNT_A # Footprint indicators at activity level #
+  read elements from file ACTDAT header "SFPA";
+Set FPRNT_I # Footprint indicators at intermediate level #
+  read elements from file ACTDAT header "SFPI";
+Set FPRNT # Set of footprint indicators # = FPRNT_A + FPRNT_I;
+! note that + enforces sets to be disjoint - so footprints are eiher defined at
+activity or at intermediate input level !
+
+Set CHNL # Channels through which products flow to final demand #
+ read elements from file ACTDAT header "CHNL";
+Mapping COMM2CHNL from COMM to CHNL;
+ Read (by_elements) COMM2CHNL from file ACTDAT header "MC2C";
+
+Set FDCAT # Grouping of final demand categories #
+ read elements from file ACTDAT header "FDCT";
+Mapping FDEM2FDCAT from FDEM to FDCAT;
+ Read (by_elements) FDEM2FDCAT from file ACTDAT header "MD2F";
+
+!EndRegion!

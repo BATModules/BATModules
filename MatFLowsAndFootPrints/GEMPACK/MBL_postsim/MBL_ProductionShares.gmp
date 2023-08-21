@@ -1,0 +1,87 @@
+!============================================================================
+  File      : MBL_ProductionShares.gmp
+  Remarks   : Use the Leontief inverse to compute contents of consumed
+              commodities and derive production shares
+ =============================================================================!
+
+!Region Data preparation!
+
+! === Split combined indices in Leontief inverse! 
+Coefficient (all,i,COMM)(all,s,REG)(all,c,COMM)(all,d,REG)
+ LI(i,s,c,d) 
+ # Quantity-based Leontief inverse  i from s in final demand c in d #;
+ Formula  (all,i,COMM)(all,s,REG)(all,c,COMM)(all,d,REG)
+ LI(i,s,c,d) = sum{jj,COMREG:(COMREG2COMM(jj)=c) AND (COMREG2REG(jj)=d), 
+   sum{ii,COMREG:(COMREG2COMM(ii)=i) AND (COMREG2REG(ii)=s), 
+   L(ii,jj)}};
+
+!EndRegion!
+
+!Region Production required for final demand by agent !
+
+!Leontief inverse specifies the amounnt of production i from region p needed
+for final demand of c in s. Multiplying this with the final demand for c from s
+by final demand categories from d provides full description of how products
+flow from p via s to final demand in d. We combine the final demand categories
+in a single set to create a single matrix!
+
+Coefficient 
+(all,i,COMM)(all,p,REG)(all,c,COMM)(all,s,REG)(all,f,FDEM)(all,d,REG)
+ Q2FD(i,p,c,s,f,d) 
+ # Production i in p for final demand in d via cons. of c from s (mil USD)#;
+ Formula (all,i,COMM)(all,p,REG)(all,c,COMM)(all,s,REG)(all,f,FDEM)(all,d,REG)
+   Q2FD(i,p,c,s,f,d) = 0; 
+ Formula (all,i,COMM)(all,p,REG)(all,c,COMM)(all,s,REG)(all,d,REG)
+   Q2FD(i,p,c,s,"phh",d) = LI(i,p,c,s) * s_FP_q(c,s,d); 
+ Formula (all,i,COMM)(all,p,REG)(all,c,COMM)(all,s,REG)(all,d,REG)
+   Q2FD(i,p,c,s,"gvt",d) = LI(i,p,c,s) * s_FG_q(c,s,d); 
+ Formula (all,i,COMM)(all,p,REG)(all,c,COMM)(all,s,REG)(all,d,REG)
+   Q2FD(i,p,c,s,"inv",d) = LI(i,p,c,s) * s_FI_q(c,s,d); 
+ 
+ 
+! This provides the full matrix of how production of i in region p flows to
+final demand categories in d. Based on the Leontief inverse it captures all direct
+and indirect flows through the global economy. Of these flows only the producer
+location (p) and final commodity (c) source region (s) are made explicit in
+tracing how commodity i from region p arrives in final consumption of c from s
+by agent a located in region d. It can serve to derive more manageable subset of
+flows like  direct and indirect flows of primary products etc. 
+
+NB summming over all c,s,d and f should equal the production i in p
+(requirement of the material balance that the demand for each commodity (direct
++ indirect) has to equal production.
+
+As matrix inversion is less numerically accurate than solving system of
+equations there will be deviations. Given larg differences in size of sectors
+we express this check in percentage tems !
+
+Coefficient (all,i,COMM)(all,p,REG)  
+ chk_FDq(i,p) # Difference beteen sum of demand and production (%) #;
+ Formula (all,i,COMM)(all,p,REG)  
+ chk_FDq(i,p) = 100 * 
+        [sum{c,COMM, sum{s,REG, sum{d,REG,sum{f, FDEM,Q2FD(i,p,c,s,f,d)}}}}
+       / Q_q(i,p) - 1];
+       
+ ! === Express final demand as shares!
+
+! To ease the introduction of for example biophysical quantities we express
+  material flows in shares. This also takes care of any slacks due to
+  imprecision in the matrix inversion. !
+ 
+Coefficient 
+(all,i,COMM)(all,p,REG)(all,c,COMM)(all,s,REG)(all,f,FDEM)(all,d,REG)
+ FD_shr(i,p,c,s,f,d) 
+ #Shares final demand in d for produced i from p via consumption of c from d #;
+ Formula (all,i,COMM)(all,p,REG)(all,c,COMM)(all,s,REG)(all,f,FDEM)(all,d,REG)
+ FD_shr(i,p,c,s,f,d) =  Q2FD(i,p,c,s,f,d) / 
+ [sum{cc,COMM, sum{ss,REG, sum{dd,REG,sum{ff,FDEM,Q2FD(i,p,cc,ss,ff,dd)}}}}];
+
+!EndRegion!
+
+!Region Write results!
+
+Write LI to file FOOTP header "LI";
+Write FD_shr to file FOOTP header "FD_S";
+Write chk_FDq to file CHEK header "CQFD";
+
+!EndRegion!

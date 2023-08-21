@@ -1,0 +1,322 @@
+!
+=== Code to compute quantities from a GTAP databases ============
+
+--- PURPOSE
+Derives quantities that get as close as possible to the quantities from a
+standard GTAP database by removing taxes and transport margins that affect the
+alloaction of material flows over destinations. These coeffiicents can be linked
+to stanadrd GTAP v7 model variables to update them in model simulations.
+Post-simulation material balances can be computed to check the consistency of
+the quantity estimates when tracing impacts through global supply chains.
+
+---  USE 
+Provide a cmf file that links the logical file names in this code (GTAPSETS
+and GTAPDATA) to appropriate files using GTAP v7 nomenclature) and define the
+names for the output files (DATA and CHEK). The DATA file will contain an
+adjusted version of the BaseData adding headers with quantities that can be
+updated in an approprately adjusted model. Checks on the calculations are 
+written to the CHEK file.
+
+---  VERSION
+Version 1.0 (August 2023)
+
+---  CONTACT
+Marijke Kuiper (marijke.kuiper@wr.nl)
+!
+
+! == Logical file names for input data & output of results !
+!============================================================================
+  File      : MBL_files.gmp
+  Remarks   : defines logical files names for input data and results
+ =============================================================================!
+
+! Files with input data !
+File GTAPSETS # File with set specification #;
+File GTAPDATA # File containing all Base Data #;
+
+! Files wih results !
+File (new) DATA # GTAP basedata file expanded with quantity headers #;
+File (new) CHEK # File with checks on calculations #;
+
+! == Sets and mappings !
+!============================================================================
+  File      : MBL_SetsMaps.gmp
+  Remarks   : Standard GTAP sets
+ =============================================================================!
+
+Set REG # Regions in the model #
+  Read elements from file GTAPSETS header "REG";
+Set COMM # Traded commodities (including split sectors) #
+  Read elements from file GTAPSETS header "COMM";
+Set MARG # margin commodities #
+    read elements from file GTAPSETS header "MARG";
+Subset MARG is subset of COMM;
+Set NMARG # non-margin commodities # = COMM - MARG;   
+Set ACTS # Sectors producing traded commodities #
+  Read elements from file GTAPSETS header "ACTS";
+  Subset ACTS is subset of COMM;
+
+
+! == Read standard GTAP headers needing adjustment !
+!============================================================================
+  File      : MBL_ReadData.gmp
+  Remarks   : Read standard GTAP v7 headers
+ =============================================================================!
+
+Coefficient (ge 0)(all,i,COMM)(all,j,ACTS)(all,r,REG) 
+  MAKES(i,j,r) # MAKE matrix at supply prices #;  
+  Read    MAKES from file GTAPDATA header "MAKS";
+Coefficient (ge 0)(all,i,COMM)(all,j,ACTS)(all,r,REG) 
+  MAKEB(i,j,r) # MAKE matrix at basic prices #;
+  Read    MAKEB from file GTAPDATA header "MAKB";
+
+Coefficient (ge 0)(all,i,COMM)(all,j,ACTS)(all,r,REG)
+  VDFB(i,j,r) # domestic purchases, by firms, at basic prices #;
+  Read   VDFB from file GTAPDATA header "VDFB";
+Coefficient (ge 0)(all,i,COMM)(all,j,ACTS)(all,r,REG)
+  VMFB(i,j,r) # import purchases, by firms, at basic prices #;
+  Read   VMFB from file GTAPDATA header "VMFB";
+
+Coefficient (ge 0)(all,i,COMM)(all,r,REG)
+  VDPB(i,r) # domestic purchases, by households, at basic prices #;
+  Read   VDPB from file GTAPDATA header "VDPB";
+ Coefficient (ge 0)(all,i,COMM)(all,r,REG)
+  VMPB(i,r) # import purchases, by households, at basic prices #;
+  Read   VMPB from file GTAPDATA header "VMPB";
+  
+Coefficient (ge 0)(all,i,COMM)(all,r,REG)
+  VDGB(i,r) # domestic purchases, by government, at basic prices #;
+  Read   VDGB from file GTAPDATA header "VDGB";
+Coefficient (ge 0)(all,i,COMM)(all,r,REG)
+  VMGB(i,r) # domestic purchases, by government, at basic prices #;
+  Read   VMGB from file GTAPDATA header "VMGB";
+  
+Coefficient (ge 0)(all,i,COMM)(all,r,REG)
+  VDIB(i,r)# domestic purchases, by investment, at basic prices #;
+  Read    VDIB from file GTAPDATA header "VDIB";
+Coefficient (ge 0)(all,i,COMM)(all,r,REG) 
+  VMIB(i,r)# import purchases, by investment, at basic prices #;
+  Read    VMIB from file GTAPDATA header "VMIB";
+  
+Coefficient (ge 0)(all,i,COMM)(all,r,REG)(all,s,REG)
+  VXSB(i,r,s) #non-margin exports, at basic prices#;
+  Read   VXSB from file GTAPDATA header "VXSB";
+
+Coefficient (ge 0)(all,m,MARG)(all,r,REG)
+  VST(m,r) # exprts of m from r for int'l trnsport at mkt p (tradeables only) #;
+  Read   VST from file GTAPDATA header "VST";
+Coefficient (ge 0) (all,m,MARG)(all,c,COMM)(all,s,REG)(all,d,REG)
+  VTMFSD(m,c,s,d)
+  # int'l margin usage, by margin, freight, source, and destination #;
+  Read VTMFSD from file GTAPDATA header "VTWR";
+
+
+! == Compute quantities by removing taxes and international trade margins!
+!============================================================================
+  File      : MBL_Quantities.gmp
+  Remarks   : Compute quantities by removing taxes and transport margins
+ =============================================================================!
+
+!GLobal material balance: 
+   production (Q) = intermediate demand (I) + final demand (F)!
+
+ZeroDivide default 0;
+
+!Region Step 1: Adjusting for production and export taxes!
+
+! Define production in q quantity terms!
+Coefficient (all,c,COMM)(all,a,ACTS)(all,r,REG)
+ PROD_q(c,a,r) # Quantity produced of c by activity a in r (mil USD) #;
+ Formula (all,c,COMM)(all,a,ACTS)(all,r,REG)
+ PROD_q(c,a,r) = MAKES(c,a,r);
+
+!For demand for domestic production in quantities we need to remove output
+taxes from the purchases at basic prices. Export taxes are removed by reading
+demand at baisc prices (VXSB) instead of at FOB prices (VFOB)!
+ 
+ ! Compute output tax rate from MAKE matrices at producer and basic prcies!
+Coefficient (all,c,COMM)(all,r,REG)
+ ProdTaxRate(c,r) # Output tax rate (Prodtax in SAM) in region s on c #;
+ Formula (all,c,COMM)(all,r,REG)
+ ProdTaxRate(c,r) = sum{a,ACTS, MAKEB(c,a,r)} / sum{a,ACTS, MAKES(c,a,r)};
+ ! NB if >1 then there is a tax, <1 implies a subsidy!
+ 
+ !Remove production taxes from demand for domestic supply!
+
+!Intermediate demand - domestic!
+Coefficient (all,c,COMM)(all,a,ACTS)(all,r,REG)  d_INT_q(c,a,r) 
+ # Quantity domestic intermediate demand for c by a in r (mil USD)#;
+ Formula (all,c,COMM)(all,a,ACTS)(all,r,REG)  
+ d_INT_q(c,a,r)  = VDFB(c,a,r) / ProdTaxRate(c,r);
+ 
+!Final demand, private household - domestic!
+Coefficient (all,c,COMM)(all,r,REG)  d_FINP_q(c,r) 
+ # Quantity domestic final private household demand for c in r (mil USD)#;
+ Formula  (all,c,COMM)(all,r,REG)  
+ d_FINP_q(c,r) = VDPB(c,r)  / ProdTaxRate(c,r);
+
+!Final demand, government - domestic!
+Coefficient (all,c,COMM)(all,r,REG)  d_FING_q(c,r) 
+ # Quantity domestic final government demand for c in r (mil USD)#;
+ Formula (all,c,COMM)(all,r,REG)  
+ d_FING_q(c,r) = VDGB(c,r)  / ProdTaxRate(c,r);
+
+!Final demand, investment - domestic!
+Coefficient (all,c,COMM)(all,r,REG)  d_FINI_q(c,r) 
+ # Quantity domestic final investment demand for c in r (mil USD)#;
+ Formula (all,c,COMM)(all,r,REG)  
+ d_FINI_q(c,r) = VDIB(c,r)  / ProdTaxRate(c,r);
+
+! Bilateral trade !
+Coefficient (all,c,COMM)(all,s,REG)(all,d,REG) TRADE_q(c,s,d)
+ # Quantity of c exported from s to d (mil USD) #;
+ Formula (all,c,COMM)(all,s,REG)(all,d,REG) 
+ TRADE_q(c,s,d) = VXSB(c,s,d) / ProdTaxRate(c,s);
+
+! Supply of margin commodities to global transport pool!
+Coefficient (all,m,MARG)(all,r,REG)  TRANSS_q(m,r)  
+  # Quantity int'l margin m supplied to global pool by r (mil USD)#;
+  Formula (all,m,MARG)(all,r,REG)
+  TRANSS_q(m,r) = VST(m,r) / ProdTaxRate(m,r);
+ 
+! Check that activity supply now equals demand - separate for margin and
+non-margin commodities!
+Coefficient (all,c,COMM)(all,r,REG) MBL_CHK1(c,r) 
+# Check step 1: adjustment domestic demand for production taxes # ;
+  Formula (all,c,NMARG)(all,r,REG)
+  MBL_CHK1(c,r) = ! supply at basic prices !
+               + sum{a,ACTS,PROD_q(c,a,r)} 
+               ! intermediate demand corrected for production taxes !
+               - sum(a,ACTS, d_INT_q(c,a,r)) 
+               - d_FINP_q(c,r) - d_FING_q(c,r) - d_FINI_q(c,r)
+                ! exports  !
+               - sum{d,REG, TRADE_q(c,r,d)};
+Formula (all,m,MARG)(all,r,REG)
+  MBL_CHK1(m,r) = ! supply at basic prices !
+               + sum{a,ACTS,PROD_q(m,a,r)}
+               ! intermediate demand corrected for production taxes !
+               - sum(a,ACTS, d_INT_q(m,a,r)) 
+               - d_FINP_q(m,r) - d_FING_q(m,r) - d_FINI_q(m,r)
+               ! supply to global pool (non-zero only for margins )!
+               - TRANSS_q(m,r)
+               ! exports  !
+               - sum{d,REG, TRADE_q(m,r,d)};
+Write MBL_CHK1 to file CHEK header "MBL1";
+
+
+!EndRegion!
+
+!Region Step 2: Adjusting import purchases for trade taxes and trade margins!
+
+! Value of demand for imports by agents includes export duties (FOB) import
+duties and transport costs (CIF). Lakcing data on sourcing of imports by agent
+we distribute the exported values excluding export taxes, import taxes duties
+and transport costs (TRADE_q(c,s,d)) based on agent's shares in total imports 
+at basic prices.!
+
+!Total intermediate and final import demand at basic prices!
+Coefficient (all,c,COMM)(all,d,REG) MTOTB(c,d)
+ # Total value imported in region d (incl. all duties & transport) #;
+ Formula (all,c,COMM)(all,d,REG) 
+  MTOTB(c,d) = sum{a,ACTS, VMFB(c,a,d)} + VMPB(c,d) + VMGB(c,d) + VMIB(c,d);
+
+!Intermediate demand - imported!
+Coefficient (all,c,COMM)(all,a,ACTS)(all,d,REG) m_INT_q(c,a,d) 
+ # Quantity imported intermediate demand for c by a in d (mil USD)#;
+ Formula (all,c,COMM)(all,a,ACTS)(all,d,REG)  
+ m_INT_q(c,a,d) = sum{r,REG, [VMFB(c,a,d) / MTOTB(c,d)] * TRADE_q(c,r,d)};  
+  
+!Final demand, private household - imported!
+Coefficient (all,c,COMM)(all,d,REG) m_FINP_q(c,d) 
+ # Quantity imported private household demand for c in d (mil USD)#;
+ Formula (all,c,COMM)(all,d,REG)
+ m_FINP_q(c,d) = sum{r,REG,[VMPB(c,d) / MTOTB(c,d)] * TRADE_q(c,r,d)};  
+ 
+!Final demand, government - imported!
+Coefficient (all,c,COMM)(all,d,REG)  m_FING_q(c,d) 
+ # Quantity imported government demand for c in d (mil USD)#;
+ Formula (all,c,COMM)(all,d,REG)  
+ m_FING_q(c,d) = sum{r,REG, [VMGB(c,d) / MTOTB(c,d)] * TRADE_q(c,r,d)};  
+ 
+!Final demand, investment - imported!
+Coefficient (all,c,COMM)(all,d,REG)  m_FINI_q(c,d) 
+ # Quantity imported investment demand for c in d (mil USD)#;
+ Formula (all,c,COMM)(all,d,REG)  
+ m_FINI_q(c,d) = sum{r,REG,[VMIB(c,d) / MTOTB(c,d)] * TRADE_q(c,r,d)};  
+
+! Check that exports match import demand!
+Coefficient (all,c,COMM)
+  MBL_CHCK_2(c) # Check step 2: adjust import demand for margin and taxes #;
+  Formula (all,c,COMM)
+  MBL_CHCK_2(c) = ! exports from region r to d!
+              + sum{r,REG, sum{d,REG, TRADE_q(c,r,d)}}
+              ! intermediate demand imports!
+              - sum{d,REG, sum{a,ACTS, m_INT_q(c,a,d)}}
+              ! private household demand imports !
+              - sum{d,REG, m_FINP_q(c,d)}
+              ! government demand imports !
+              - sum{d,REG, m_FING_q(c,d)}
+              ! investment demand imports !
+              - sum{d,REG, m_FINI_q(c,d)};
+Write MBL_CHCK_2 to file CHEK header "MBL2";
+
+!EndRegion!
+
+!Region Step 3: Quantities of demand for transport margins!
+
+!There is an output tax/subsidy on production of transport services,
+already removed above from the supply to global pool (VST _>TRANSS_q) in step
+1. We scale down demand with same amount to balance the global transport
+pool. Lacking data on bilateral flows of international margins we scale
+demand in region d by the same factor (i.e. only margin specific, not region
+specific). No taxes on margins so can use values as quantities
+in initialization!
+
+Coefficient (all,m,MARG)(all,c,COMM)(all,r,REG)(all,d,REG)  TRANSD_q(m,c,r,d)
+ # Quantity int'l margin demanded for imports of c in d from r (mil USD) #;
+ Formula (all,m,MARG)(all,c,COMM)(all,r,REG)(all,d,REG)
+ TRANSD_q(m,c,r,d) = sum{t,REG,TRANSS_q(m,t)} / sum{t,REG,VST(m,t)}
+                    *  VTMFSD(m,c,r,d);
+
+! Check balance of global transport pool!
+Coefficient (all,m,MARG) 
+ CHK_3(m) # Check step 3: balancing of global transport pool #;
+ Formula (all,m,MARG) 
+ CHK_3(m) = ! supply to global transport pool !
+          + sum{r,REG, TRANSS_q(m,r)}
+            ! demand for transport!
+          - sum{c,COMM, sum{r,REG, Sum{d,REG, TRANSD_q(m,c,r,d)}}};
+  Write CHK_3 to file CHEK header "CHK3";
+
+!EndRegion!
+
+ZeroDivide off;
+
+! == Add quantities to database !
+!============================================================================
+  File      : MBL_AddQuantities2Dbase.gmp
+  Remarks   : Adjust database by adding new quantity measures
+ =============================================================================!
+
+! Transfer all existing data from the source database!
+Transfer unwritten from file GTAPDATA to file DATA;
+
+! Write the quantity coefficients!
+!  - Production!
+Write PROD_q to file DATA header "PQ_Q";
+! - domestic demand !
+Write d_INT_q to file DATA header "DA_Q";
+Write d_FINP_q to file DATA header "DP_Q";
+Write d_FING_q to file DATA header "DG_Q";
+Write d_FINI_q to file DATA header "DI_Q";
+! - international trade!
+Write TRADE_q to file DATA header "TR_Q";
+! - import demand !
+Write m_INT_q to file DATA header "MA_Q";
+Write m_FINP_q to file DATA header "MP_Q";
+Write m_FING_q to file DATA header "MG_Q";
+Write m_FINI_q to file DATA header "MI_Q";
+! - transport margin supply and demand!
+Write TRANSS_q to file DATA header "TS_Q";
+Write TRANSD_q to file DATA header "TD_Q";
+

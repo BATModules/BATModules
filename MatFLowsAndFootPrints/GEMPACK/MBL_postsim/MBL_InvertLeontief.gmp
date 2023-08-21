@@ -1,0 +1,79 @@
+!============================================================================
+  File     : MBL_InvertLeontief.gmp
+ Remarks   : Compute the Leontief inverse matrix
+ =============================================================================!
+
+!Region Create matrix of technical coefficients!
+
+ZeroDivide (NONZERO_BY_ZERO) default 0; 
+ZeroDivide (ZERO_BY_ZERO) default 0; 
+
+Coefficient (all,i,COMM)(all,s,REG)(all,c,COMM)(all,d,REG)  s_IO_q(i,s,c,d) 
+ #IO coeff.(qtity): use of i from region s when producing comm. c in region d#;
+  Formula (all,i,COMM)(all,s,REG)(all,c,COMM)(all,d,REG)
+  s_IO_q(i,s,c,d) = s_I_q(i,s,c,d) / Q_q(c,d); 
+ZeroDivide off;
+
+!== Map technical coefficients into 2-dimensopnal matrix for inversion!
+Coefficient (all,i,COMREG)(all,j,COMREG)  IO(i,j) 
+ # Input-output coefficients for production in region d with inputs from s #;
+ Formula (all,i,COMREG)(all,j,COMREG)
+ IO(i,j) = s_IO_q(COMREG2COMM(i),COMREG2REG(i),COMREG2COMM(j),COMREG2REG(j));
+
+!EndRegion!
+
+!Region Compute the Leontief inverse!
+
+!== Initialize maximum deviation from identity matrix as check on inversion !
+Coefficient(parameter) 
+ IM_DIF_max # Maximum (absolute) deviation from identity matrix #;
+ Read IM_DIF_max from file XDATA header "DMAX";
+
+Coefficient (all,i,COMREG)(all,k,COMREG) 
+  IM(i,k) # Identity matrix #;
+  Formula(initial)(all,i,COMREG)(all,k,COMREG) IM(i,k) = 0;
+  Formula(initial)(all,i,COMREG)(all,k,COMREG) IM(i,k) = if(i eq k, 1);
+  Update(change)  (all,i,COMREG)(all,k,COMREG) IM(i,k) = 0; 
+! Update is needed as defined in two steps ( (1) set to 0 and then (2) fill 
+  diagonal with 1 and thus cannot be defined as a parameter!
+ 
+Coefficient(parameter) (all,i,COMREG)(all,j,COMREG) 
+ I_IO(i,j) # Identity - IO matrix that needs to be inverted #;
+ Formula(initial)  (all,i,COMREG)(all,j,COMREG) 
+ I_IO(i,j) = IM(i,j) - IO(i,j);
+
+! === Variables & equation !
+
+Variable (change) (all,j,COMREG)(all,k,COMREG) 
+ L(j,k) # Inverse Leontief matrix #;
+Variable (change) dummy # Dummy unit shock #;
+
+Equation E_L (all,i,COMREG)(all,k,COMREG)
+   sum{j,COMREG, I_IO(i,j)*L(j,k)} = IM(i,k)*dummy;
+! During the one-step simulation, dummy is shocked by 1
+  After the sim, dummy is 1 so the variable L is the inverse of the matrix I_IO 
+  since the linearised equation is (in matrix notation) I_IO* L = IM !
+
+!EndRegion!
+
+!Region Post-simulation checks!
+Postsim (begin);
+
+Coefficient  (all,i,COMREG)(all,k,COMREG)  CHK_INV(i,k)
+ # Check on Leontief inversion - should be close to identity matrix#;
+Formula (all,i,COMREG)(all,k,COMREG) 
+ CHK_INV(i,k) = sum{j,COMREG, I_IO(i,j)*L(j,k)};
+  
+! Define assertion to generate error in case of faulty inversion!
+Coefficient IM_DIF # Difference from identity matrix #;
+ Formula IM_DIF = sum{i,COMREG, sum{k, COMREG, abs{CHK_INV(i,k) - IM(i,k)}}};
+Assertion # Inversion seems failed due to singular matrix #
+  IM_DIF < IM_DIF_max;
+! Arbitrary boundary - meant as warning to carefully check results. 
+  Can proceed if exceeded by setting assertions to warnings in CMF file!
+
+Write  CHK_INV to file CHEK header "CHKI";
+
+Postsim (end);
+!EndRegion!
+
