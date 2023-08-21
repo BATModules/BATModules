@@ -12,11 +12,11 @@ This module derives consistent regionalized material balances from a standard GT
 
 The code has been structured to work with standard GTAP v7 databases. It consists of three parts:
 
-1.  Database adjustment: addition of quantity estimates for the material balances to the model database
+1.  *MBL_DatabaseAddition*: addition of quantity estimates for the material balances to the model database
 
-2.  Model extension: add-on code to update the new data with quantity changes from the model
+2.  *MBL_ModelAddition*: add-on code to update the new data with quantity changes from the model
 
-3.  Post-simulation calculations: check the consistency of material flows, calculation of the Leontief inverse, derivation of footprint estimates based in the direct and indirect flows of commodities
+3.  *MBL_PostSimBalancesAndFootPrints*: check the consistency of material flows, calculation of the Leontief inverse, derivation of footprint estimates based in the direct and indirect flows of commodities
 
 The additions have no impact on model results, variables standard in the GTAP v7 model are used to update the quantity estimates. The current code use GEMPACK to invert the Leontief. For large models this inversion may take excessive time or even fail. R code is being prepared as an alternative for the post-simulation calculations as it is better able to handle inversion of large databases.
 
