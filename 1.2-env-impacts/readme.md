@@ -1,3 +1,5 @@
+![BATModel_logoround](/images/BATModel_logo_round_small.png)
+
 # About
 
 This module provides a top-down link from a GTAP-based CGE model to CAPRI. The CGE model provides price changes and CAPRI computes environmental regional environmental impacts.
@@ -20,3 +22,5 @@ You need to implement code that delivers the interface. One such GAMS file is pr
 
 # Technical documentation
 See the BATModules [wiki](https://github.com/BATModules/BATModules/wiki/Module-1.2-Regional-Environmental-Impacts).
+
+![BATModel_EUacknowledgement](/images/BATModel_EUAcknowledgement_bottom.png)
