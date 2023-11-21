@@ -1,0 +1,292 @@
+!============================================================================
+
+  File      : MRIO.gmp
+  Author    : David Cui
+  Date      : 03-03-2023 15:49:09
+  Remarks   : MRIO module code based on GTAPv7-MRIO model and GTAP10.1 data.
+
+ =============================================================================!
+
+!MRIO-Module-Starts!
+!<  @MRIO: add agent-specific ams and make ESUBM agent-specific >!
+Variable (all,c,COMM)(all,aa,AGENTS)(all,s,REG)(all,d,GVC_REG)
+    amsall(c,aa,s,d) # commodity c augmenting tech change from s to d, by agent #;
+Variable (all,c,COMM)(all,aa,AGENTS)(all,s,REG)(all,d,GVC_REG)
+    amsa(c,aa,s,d) # commodity c augmenting tech change from s to d, by agent #;
+Coefficient (parameter)(all,c,COMM)(all,aa,AGENTS)(all,r,REG)
+    ESUBM2(c,aa,r)
+    # region-specific elast. of sub. among imports c in Armington by agent #;
+Formula (initial)(all,c,COMM)(all,aa,AGENTS)(all,r,REG)
+    ESUBM2(c,aa,r) = ESUBM(c,r);
+Read (IfHeaderExists)
+    ESUBM2 from file GTAPPARM header "ESM2";
+Assertion (all,c,COMM)(all,aa,AGENTS)(all,r,REG) ESUBM2(c,aa,r) ge 0;
+    
+Equation E_amsa
+# commodity c augmenting tech change from s to d, by agent #
+(all,c,COMM)(all,aa,AGENTS)(all,s,REG)(all,d,GVC_REG)
+    amsa(c,aa,s,d) = ams(c,s,d) + amsall(c,aa,s,d);
+
+!<  @MRIO: agent-specific commodity imports by region >!
+Variable (all,c,COMM)(all,aa,AGENTS)(all,d,GVC_REG)
+    pamd(c,aa,d) # agent-specific basic (tariff-incl) import prices in d #; 
+Variable (all,c,COMM)(all,aa,AGENTS)(all,d,GVC_REG)
+    qamd(c,aa,d) # agent-specific import quantity: basic price weights #; 
+Zerodivide default RNREG;
+Zerodivide (nonzero_by_zero) default 0;
+Coefficient (all,c,COMM)(all,aa,AGENTS)(all,s,REG)(all,d,REG)
+    MABSHR(c,aa,s,d) # basic import shares by agent and source in d #; 
+Formula (all,c,COMM)(all,aa,AGENTS)(all,s,REG)(all,d,REG)
+    MABSHR(c,aa,s,d) = VMAB(c,aa,s,d) / sum{ss,REG, VMAB(c,aa,ss,d)}; 
+Zerodivide off;
+
+Equation E_pamd 
+# agent-specific aggregate basic (tariff-inclusive) import prices #  
+(all,c,COMM)(all,aa,AGENTS)(all,d,GVC_REG)
+    pamd(c,aa,d) = sum{s,GVC_REG, MABSHR(c,aa,s,d) * [pamds(c,aa,s,d) - amsa(c,aa,s,d)]};
+
+Equation E_qamd 
+# agent-specific import quantity: for reporting purposes #  
+(all,c,COMM)(all,aa,AGENTS)(all,d,GVC_REG)
+    qamd(c,aa,d) = sum{s,GVC_REG, MABSHR(c,aa,s,d) * qamds(c,aa,s,d)};
+
+Equation E_qamds
+# regional demand for commodity imports by source and agent: 2nd level Armington #
+(all,c,COMM)(all,aa,AGENTS)(all,s,GVC_REG)(all,d,GVC_REG)
+    qamds(c,aa,s,d) + amsa(c,aa,s,d) 
+        = IF[aa in ACTS, 
+             qfm(c,aa,d) - ESUBM2(c,aa,d) * [pamds(c,aa,s,d) - amsa(c,aa,s,d) - pamd(c,aa,d)]]
+        + IF[aa="hhld", 
+             qpm(c,d)    - ESUBM2(c,aa,d) * [pamds(c,aa,s,d) - amsa(c,aa,s,d) - pamd(c,aa,d)]]
+        + IF[aa="govt", 
+             qgm(c,d)    - ESUBM2(c,aa,d) * [pamds(c,aa,s,d) - amsa(c,aa,s,d) - pamd(c,aa,d)]]
+        + IF[aa="invt", 
+             qim(c,d)    - ESUBM2(c,aa,d) * [pamds(c,aa,s,d) - amsa(c,aa,s,d) - pamd(c,aa,d)]]
+        ;
+
+!< @MRIO: Import shares by agent for use in E_qxs >!
+Zerodivide default RNREG;
+Zerodivide (nonzero_by_zero) default 0;
+Coefficient (all,c,COMM)(all,aa,AGENTS)(all,s,REG)(all,d,REG)
+    QXSSHR(c,aa,s,d) # agent-specific share in total imports, CIF weights #;
+Formula (all,c,COMM)(all,aa,AGENTS)(all,s,REG)(all,d,REG)
+    QXSSHR(c,aa,s,d) = VMAC(c,aa,s,d) / VCIF(c,s,d);
+Zerodivide off;
+
+!< @MRIO: E_qxs2 is now the import market clearing equation >!
+Equation E_qxs2
+# regional demand for disaggregated imported commodities by source #
+(all,c,COMM)(all,s,GVC_REG)(all,d,GVC_REG)
+    qxs(c,s,d) = sum{aa,AGENTS, QXSSHR(c,aa,s,d) * qamds(c,aa,s,d)};
+
+Equation E_pms2
+# price for aggregate imports c at tariff-inclusive (basic) prices #
+(all,c,COMM)(all,d,GVC_REG)
+    pms(c,d) = sum{s,REG, MSHRS(c,s,d) * pmds(c,s,d)};
+
+!<  @MRIO: agent-specific tariff rates and tariff-inclusive price of imports >!
+Variable (all,c,COMM)(all,aa,AGENTS)(all,s,REG)(all,d,REG)
+    tmsa(c,aa,s,d) # agent-spec. power of import tariff on c from s to d #;
+Equation E_pamds 
+# tariff-inclusive price of import c from region s for use by agent aa in d #
+(all,c,COMM)(all,aa,AGENTS)(all,s,GVC_REG)(all,d,GVC_REG)
+    pamds(c,aa,s,d) = pcif(c,s,d) + tm(c,d) + tms(c,s,d) + tmsa(c,aa,s,d);
+
+Zerodivide default RNREG;
+Zerodivide (nonzero_by_zero) default 0;
+Coefficient (all,c,COMM)(all,aa,AGENTS)(all,s,REG)(all,d,REG)
+    PMDSASHR(c,aa,s,d) # share in total imports by agent, basic price weights #;
+Formula (all,c,COMM)(all,aa,AGENTS)(all,s,REG)(all,d,REG)
+    PMDSASHR(c,aa,s,d) = VMAB(c,aa,s,d) / VMSB(c,s,d);
+Zerodivide off;
+
+Equation E_pmds2
+# links basic domestic import prices and CIF import prices #
+(all,c,COMM)(all,s,REG)(all,d,GVC_REG)
+    pmds(c,s,d) = sum{aa,AGENTS, PMDSASHR(c,aa,s,d) * pamds(c,aa,s,d)};
+
+Equation E_pfm2
+# links domestic basic and firm prices #
+(all,c,COMM)(all,a,ACTS)(all,r,GVC_REG)
+   pfm(c,a,r) = pamd(c,a,r) + tfm(c,a,r); 
+
+Equation E_ppm2
+# links basic and private household consumption prices for imported com. c #
+(all,c,COMM)(all,r,GVC_REG)
+    ppm(c,r) = pamd(c,"hhld",r) + tpm(c,r); 
+
+Equation E_pgm2
+# links basic and government consumption prices for imported com. c #
+(all,c,COMM)(all,r,GVC_REG)
+    pgm(c,r) = pamd(c,"govt",r) + tgm(c,r);    
+
+Equation E_pim2 
+# links basic and investment consumption prices for imported com. c #
+(all,c,COMM)(all,r,GVC_REG)  
+    pim(c,r) = pamd(c,"invt",r) + tim(c,r);     
+
+Equation E_del_taxriu2
+# change in ratio of tax payments on intermediate goods to regional income #
+(all,r,GVC_REG)
+    100.0 * INCOME(r) * del_taxriu(r) + TAXRIU(r) * y(r)
+        = sum{c,COMM, sum{a,ACTS,
+            VDFP(c,a,r) * tfd(c,a,r) + DFTAX(c,a,r) * [pds(c,r) + qfd(c,a,r)]}}
+	+ sum{c,COMM, sum{a,ACTS,
+            VMFP(c,a,r) * tfm(c,a,r) + MFTAX(c,a,r) * [pamd(c,a,r) + qfm(c,a,r)]}};
+
+Equation E_del_taxrpc2
+# change in ratio of private consumption tax payments to regional income #
+(all,r,GVC_REG)
+    100.0 * INCOME(r) * del_taxrpc(r) + TAXRPC(r) * y(r)
+        = sum{c,COMM,
+            VDPP(c,r) * tpd(c,r) + DPTAX(c,r) * [pds(c,r) + qpd(c,r)]}
+        + sum{c,COMM,        
+            VMPP(c,r) * tpm(c,r) + MPTAX(c,r) * [pamd(c,"hhld",r) + qpm(c,r)]};
+
+Equation E_del_taxrgc2 
+# change in ratio of government consumption tax payments to regional income #
+(all,r,GVC_REG)
+    100.0 * INCOME(r) * del_taxrgc(r) + TAXRGC(r) * y(r)
+        = sum{c,COMM,
+            VDGP(c,r) * tgd(c,r) + DGTAX(c,r) * [pds(c,r) + qgd(c,r)]}
+        + sum{c,COMM,  
+            VMGP(c,r) * tgm(c,r) + MGTAX(c,r) * [pamd(c,"govt",r) + qgm(c,r)]};
+
+Equation E_del_taxric2  
+# change in ratio of investment tax payments to regional income #
+(all,r,GVC_REG)
+    100.0 * INCOME(r) * del_taxric(r) + TAXRIC(r) * y(r)
+        = sum{c,COMM,
+            VDIP(c,r) * tid(c,r) + DITAX(c,r) * [pds(c,r) + qid(c,r)]}
+        + sum{c,COMM,          
+            VMIP(c,r) * tim(c,r) + MITAX(c,r) * [pamd(c,"invt",r) + qim(c,r)]};
+
+Equation E_del_taxrimp2
+# change in ratio of import tax payments to regional income #
+(all,d,GVC_REG)
+    100.0 * INCOME(d) * del_taxrimp(d) + TAXRIMP(d) * y(d)
+        = sum{c,COMM, sum{s,REG, sum{aa,AGENTS,
+            VMAB(c,aa,s,d) * [tm(c,d) + tms(c,s,d) + tmsa(c,aa,s,d)]
+            + MATAX(c,aa,s,d) * [pcif(c,s,d) + qamds(c,aa,s,d)]}}};
+
+Equation E_EV_ALT2
+# decomposition of Equivalent Variation #
+(all,r,GVC_REG)
+    EV_ALT(r)
+        !< Preference shifts >!
+        = -[0.01 * UTILELASEV(r) * INCOMEEV(r)]
+        * [DPARPRIV(r) * loge(UTILPRIVEV(r) / UTILPRIV(r)) * dppriv(r)
+            + DPARGOV(r) * loge(UTILGOVEV(r) / UTILGOV(r)) * dpgov(r)
+            + DPARSAVE(r) * loge(UTILSAVEEV(r) / UTILSAVE(r)) * dpsave(r)]
+        !< Scaling factor >!
+        + [0.01 * EVSCALFACT(r)]
+        !< Changes in allocative efficiency >!
+        * [sum{c,COMM, sum{a,ACTS, PTAX(c,a,r) * [qca(c,a,r) - pop(r)]}}
+            + sum{e,ENDW, sum{a,ACTS, 
+                INCTAX(e,a,r) * [qes(e,a,r) - pop(r)]}}
+            + sum{e,ENDW, sum{a,ACTS,
+                ETAX(e,a,r) * [qfe(e,a,r) - pop(r)]}}
+            + sum{c,COMM, sum{a,ACTS, MFTAX(c,a,r) * [qfm(c,a,r) - pop(r)]}}  				
+            + sum{c,COMM, sum{a,ACTS, DFTAX(c,a,r) * [qfd(c,a,r) - pop(r)]}}
+            + sum{c,COMM, MPTAX(c,r) * [qpm(c,r) - pop(r)]}				
+            + sum{c,COMM, DPTAX(c,r) * [qpd(c,r) - pop(r)]}
+            + sum{c,COMM, MGTAX(c,r) * [qgm(c,r) - pop(r)]} 					
+            + sum{c,COMM, DGTAX(c,r) * [qgd(c,r) - pop(r)]}
+            + sum{c,COMM, MITAX(c,r) * [qim(c,r) - pop(r)]}						
+            + sum{c,COMM, DITAX(c,r) * [qid(c,r) - pop(r)]}
+            + sum{c,COMM, sum{d,REG, XTAXD(c,r,d) * [qxs(c,r,d) - pop(r)]}}
+!< @MRIO: Revise tariff contributions !
+![[!            + sum{c,COMM, sum{s,REG, MTAX(c,s,r) * [qxs(c,s,r) - pop(r)]}}  !]]!
+            + sum{c,COMM, sum{aa,AGENTS, sum{s,REG, MATAX(c,aa,s,r) * [qamds(c,aa,s,r) - pop(r)]}}}
+        !< Changes in endowments >!
+        + sum{e,ENDW, sum{a,ACTS, EVOS(e,a,r) * [qes(e,a,r) - pop(r)]}}
+            !< Depreciation >!
+        - VDEP(r) * [kb(r) - pop(r)]
+        !< Changes in technology >!
+        + sum{a,ACTS, VOS(a,r) * ao(a,r)}
+            + sum{a,ACTS, VVA(a,r) * ava(a,r)}
+            + sum{c,COMM, sum{a,ACTS, VFP(c,a,r) * aint(a,r)}}
+            + sum{a,ACTS, sum{e,ENDW, VFP(e,a,r) * afe(e,a,r)}}
+            + sum{a,ACTS, sum{c,COMM, VFP(c,a,r) * afa(c,a,r)}}
+            + sum{m,MARG, sum{c,COMM, sum{s,REG,
+                VTMFSD(m,c,s,r) * atmfsd(m,c,s,r)}}}
+!< @MRIO: Revise calculations !
+![[!            + sum{c,COMM, sum{s,REG, VMSB(c,s,r) * ams(c,s,r)}}		!]]!
+            + sum{c,COMM, sum{s,REG, sum{aa,AGENTS, VMAB(c,aa,s,r) * amsa(c,aa,s,r)}}}
+        !< Changes in terms of trade >!
+        + sum{c,COMM, sum{s,REG, VFOB(c,r,s) * pfob(c,r,s)}}
+            + sum{m,MARG, VST(m,r) * pds(m,r)}
+            + NETINV(r) * pinv(r)
+            - sum{c,COMM, sum{s,REG, VFOB(c,s,r) * pfob(c,s,r)}}
+            - sum{m,MARG, VTMD(m,r) * pt(m)}
+            - SAVE(r) * psave(r)]
+        !< Changes in population >!
+        + 0.01 * INCOMEEV(r) * pop(r);
+
+!< @MRIO: New CNTqamds >!
+Variable (linear,change) (all,c,COMM)(all,aa,AGENTS)(all,s,REG)(all,d,GVC_REG)
+    CNTqamds(c,aa,s,d)
+    # contribution to EV of changes in imports of c from SRCE s to DEST d by agents #;
+Equation E_CNTqamds
+# contribution to EV of changes in imports of c from SRCE s to DEST d by agents #
+(all,c,COMM)(all,aa,AGENTS)(all,s,REG)(all,d,GVC_REG)
+    CNTqamds(c,aa,s,d) = [0.01 * EVSCALFACT(d)] 
+                       * MATAX(c,aa,s,d) * [qamds(c,aa,s,d) - pop(d)];
+
+Equation E_CNTqms2
+# contribution to EV of changes in imports of c from SRCE s to DEST d #
+(all,c,COMM)(all,s,REG)(all,d,GVC_REG)
+    CNTqms(c,s,d) = sum{aa,AGENTS, CNTqamds(c,aa,s,d)};
+
+!< @MRIO: New CNTtech_amsa>! 
+Variable (linear,change) (all,c,COMM)(all,aa,AGENTS)(all,s,REG)(all,d,GVC_REG)
+    CNTtech_amsa(c,aa,s,d)
+    # cont. to EV of bilateral import augmenting tech change for COMM c by agent #;
+Equation E_CNTtech_amsa
+# cont. to EV of bilateral import augmenting tech change for COMM c #
+(all,c,COMM)(all,aa,AGENTS)(all,s,REG)(all,d,GVC_REG)
+    CNTtech_amsa(c,aa,s,d) 
+        = [0.01 * EVSCALFACT(s)] * VMAB(c,aa,s,d) * amsa(c,aa,s,d);
+
+Equation E_CNTtech_ams2
+# cont. to EV of bilateral import augmenting tech change for COMM c #
+(all,c,COMM)(all,s,REG)(all,d,GVC_REG)
+    CNTtech_ams(c,s,d) = sum{aa,AGENTS, CNTtech_amsa(c,aa,s,d)}; 
+
+Equation E_contgdpexp2
+# (expenditure-side) contributions to % change in real gdp #
+(all,r,GVC_REG)(all,g,GDPEX)
+    BGDP(r) * contgdpexp(r,g) 
+        = IF[g="Household",    sum{c,COMM, VPP(c,r) * qpa(c,r)} ]
+        + IF[g="Investment",   sum{c,COMM, VIP(c,r) * qia(c,r)} ]
+        + IF[g="Government",   sum{c,COMM, VGP(c,r) * qga(c,r)} ]
+        + IF[g="Exports",      sum{c,COMM, sum{d,REG, VFOB(c,r,d) * qxs(c,r,d)}}]
+        + IF[g="IntnlMargins", sum{m,MARG, VST(m,r) * qst(m,r)} ]
+        - IF[g="Imports",      sum{c,COMM, sum{aa,AGENTS, sum{s,REG, VMAC(c,aa,s,r) * qamds(c,aa,s,r)}}}];
+
+Equation E_contGDPINC2
+# (income-side) contributions to % change in real gdp #
+(all,r,GVC_REG)(all,g,CONTGDPIN)
+    BGDP(r) * contgdpinc(r,g) 
+        = IF[g in ENDW,    sum{a,ACTS, EVFP(g,a,r) *qfe(g,a,r)}]
+        + IF[g="IndTaxes", 
+                sum{c,COMM, sum{a,ACTS, PTAX(c,a,r) * qca(c,a,r)}}
+              + sum{c,COMM, sum{a,ACTS, DFTAX(c,a,r) * qfd(c,a,r)
+                                      + MFTAX(c,a,r) * qfm(c,a,r)}}
+              + sum{c,COMM, DPTAX(c,r) * qpd(c,r) + MPTAX(c,r) * qpm(c,r)}
+              + sum{c,COMM, DGTAX(c,r) * qgd(c,r) + MGTAX(c,r) * qgm(c,r)}
+              + sum{c,COMM, DITAX(c,r) * qid(c,r) + MITAX(c,r) * qim(c,r)}
+              + sum{c,COMM, sum{d,REG, XTAXD(c,r,d) * qxs(c,r,d)}} 
+              + sum{c,COMM, sum{s,REG, sum{aa,AGENTS, MATAX(c,aa,s,r) * qamds(c,aa,s,r)}}}
+            ] 
+        + IF[g="TechChange", 
+                sum{a,ACTS, VOS(a,r) * ao(a,r)}
+              + sum{c,COMM, sum{a,ACTS, 
+                        [VMFP(c,a,r) + VDFP(c,a,r)] * [aint(a,r) + afa(c,a,r)]}}
+              + sum{e,ENDW, sum{a,ACTS, VFP(e,a,r) * afe(e,a,r)}}
+              + sum{a,ACTS, VVA(a,r) * ava(a,r)}
+              + sum{m,MARG, sum{c,COMM, sum{s,REG, VTMFSD(m,c,s,r) * atmfsd(m,c,s,r)}}}              
+              + sum{c,COMM, sum{s,REG, sum{aa,AGENTS, VMAB(c,aa,s,r) * amsa(c,aa,s,r)}}}
+            ];
+
+!MRIO-Module-Ends!
