@@ -1,0 +1,1025 @@
+!============================================================================
+
+  File      : AKM_Module.gmp
+  Author    : David Cui
+  Date      : 12-12-2023 15:49:09
+  Remarks   : 
+
+ =============================================================================!
+
+!Armington-Krugman-Melitz Module for GTAPv7!
+!Created by David Cui, Wageningen Economic Research, 12/12/2023!
+
+!Module based on Bekkers & Francois's original code and updated to be compatible
+with GTAPv7, with additional productivity and product quality indicators 
+derived from Jafari et al. (2023) and Dixon et al. (2016).
+
+For technical details of this module, please refer to:
+
+Bekkers, E., & Francois, J. (2018). A parsimonious approach to incorporate firm 
+heterogeneity in cge-models. Journal of Global Economic Analysis, 3(2), 1-68.
+
+Jafari, Y., Engemann, H., & Heckelei, T. (2023). A Computable General 
+Equilibrium Theory of Heterogeneous Firms with Product Quality Differentiation.
+BATModel Deliverable D3.1.
+
+Dixon, P., Jerie, M., & Rimmer, M. (2016). Modern trade theory for CGE 
+modelling: the Armington, Krugman and Melitz models. 
+Journal of Global Economic Analysis, 1(1), 1-110.
+!
+
+!<
+    1. Miscellaneous Coefficients
+    --------------------------
+>!
+
+!
+We read seven additional parameters from the parameter file: 
+1. GRAN: the degree of granularity, ranging between 0 and 1, GRAN=ESUBM-1/THETA.
+   GRAN=1 is a limiting case where the effects of experiments collapse to the 
+   the effects in the Ethier-Krugman model. The smaller GRAN the stronger the 
+   extensive margin relative to the compositional margin and so the stronger the 
+   firm heterogeneity effects 
+2. VARS: a dummy for the presence of variety scaling. VARS=1: Melitz and Ethier-
+   Krugman. VARS=0: Armington
+3. ETK: A dummy variable for a sector being Ethier-Krugman. 
+4. ETILDE: the (estimated) tariff elasticity 
+5. ETRADE: the (estimated) trade elasticity 
+6. NU(LOVE): a separate love of variety parameter to limit the strength of the 
+   love of variety effect. NU=1 corresponds with normal CES and a smaller NU
+   makes the love of variety effect in utility weaker
+7. PRMD: The ratio of ESUBM to ESUBD, so between the elasticity of substitution
+   between imported varieties, ESUBM, and between domestic and imported 
+   varieties. A larger PRMD helps to convexify the system 
+
+We do not switch between the different models with swaps, but by setting 
+parameters (1)-(3) appropriately
+a. Melitz: GRAN<1; VARS=1; ETK=0
+b. Ethier-Krugman: GRAN=1; VARS=1; ETK=1
+c. Armington: GRAN=1; VARS=0; ETK=0
+!
+
+Set
+    NMRG_COMM # non-margin commodities # = COMM - MARG;
+
+Coefficient (parameter)(all,i,COMM)
+    GRAN(i)
+    # region-generic shape parameter for firm distribution #;
+Read
+    GRAN from file GTAPPARM header "GRAN";
+
+Coefficient (parameter)(all,i,COMM)
+    VARS(i)
+    # region-generic dummy for presence of variety scaling #;
+Read
+    VARS from file GTAPPARM header "VARS";
+
+Coefficient (parameter)(all,i,COMM)
+    ETK(i)
+    # dummy for Ethier-Krugman (only relevant with love-of-variety externality#;
+Read
+    ETK from file GTAPPARM header "ETK";
+
+Coefficient (parameter)(all,i,COMM)
+    ETILDE(i)
+    # region-generic estimated trade elasticity #;
+Read
+    ETILDE from file GTAPPARM header "ETIL";
+
+Coefficient (parameter)(all,i,COMM)
+    ETRADE(i)
+    # region-generic estimated trade elasticity #;
+Read
+    ETRADE from file GTAPPARM header "ETRA";
+
+Coefficient (parameter)(all,i,COMM)
+    CATA(i)
+    # region-generic estimated trade elasticity #;
+Read
+    CATA from file GTAPPARM header "CATA";
+
+Coefficient (parameter)(all,i,COMM)
+    NU(i)
+    # Love of variety parameter #;
+Read
+    NU from file GTAPPARM header "LOVE";
+
+Coefficient (parameter)(all,i,COMM)
+    PRMD(i)
+    # ratio of ESUBM and ESUBD #;
+READ 
+    PRMD from file GTAPPARM header "PRMD";
+
+
+!Since ESUBD and ESUBM are a function of the tariff or trade elasticity and the 
+degree of granularity under Melitz, the reading of ESUBD from the 
+parameter file is deleted and instead a formula is included to determine ESUBD
+and ESUBM. Also theta, the shape parameter of the firm size distribution, is a 
+function of ETILDE/ETRADE and GRAN!
+
+!domestic/imported substitution elasticity !
+
+Coefficient (all,i,COMM)
+    AKM_ESUBd(i)
+    # region-generic el. of sub. domestic/imported for all agents #;
+Formula (all,i,COMM)
+    AKM_ESUBd(i) = [CATA(i)*(GRAN(i)*ETILDE(i))
+             + (1-CATA(i))*(GRAN(i)*ETRADE(i)+1)]/PRMD(i);
+
+!
+Read
+    ESUBD from file GTAPPARM header "ESBD";
+!
+
+Coefficient (all,i,COMM)
+    AKM_ESUBM(i)
+    # region-generic el. of sub. among imports of i in Armington structure #;
+Formula (all,i,COMM)
+    AKM_ESUBM(i) = CATA(i)*(GRAN(i)*ETILDE(i))+(1-CATA(i))*(GRAN(i)*ETRADE(i)+1);
+!
+Read
+    AKM_ESUBM from file GTAPPARM header "ESBM";
+!
+
+Coefficient (all,i,COMM)
+    THETA(i)
+    # region-generic shape parameter for industry i #;
+FORMULA (all,i,COMM)
+    THETA(i) = CATA(i)*(ETILDE(i)-1/GRAN(i))+(1-CATA(i))*ETRADE(i);
+
+!Demand and supply shifters to model Melitz and Ethier-Krugman!
+
+VARIABLE (all,i,COMM)(all,r,REG)                           sshiftd(i,r)
+       # domestic source scaling with monopolistic competition#;
+VARIABLE (all,i,COMM)(all,r,REG)                           sshiftx(i,r)
+       # exporting source scaling with monopolistic competition# ;
+VARIABLE (all,i,COMM)(all,r,REG)                           dshiftd(i,r)
+       # demand side externality term for domestic goods# ;
+VARIABLE (all,i,COMM)(all,r,REG)                           dshiftm(i,r)
+       # demand side externality term for domestic goods# ;
+
+!<  -------------------------------
+    2. Ethier-Krugman/Melitz/Eaton-Kortum Code
+    -------------------------------
+
+    References: 
+    Joseph Francois, Scale Economies and Imperfect
+    Competition in the GTAP Model, GTAP Tech paper No. 17 
+
+    Eddy Bekkers and Joseph Francois
+    Incorporating Modern Trade Theory into CGE Models, 
+    working paper 2017. 
+>!
+
+!<  -------------------------------
+ 2.1  Instructions
+
+We do not switch between the different models with swaps, but by setting 
+parameters (1)-(3) appropriately. Because of the decompositions (welfare and
+exports) too many swaps would be needed
+a. Melitz: GRAN<1; VARS=1; ETK=0
+b. Ethier-Krugman: GRAN=1; VARS=1; ETK=1
+c. Armington: GRAN=1; VARS=0; ETK=0
+
+The numeraire has to be subtracted from the price terms in the demand and
+supply shifters and the generalized iceberg trade costs. If the numeraire is
+changed this should also be done in the code!!
+
+Notes:
+* Setting ETK correct is only needed if LOVE<1 and/or the correct trade
+decompositions are needed, i.e. if the strength of love of
+variety is smaller than under normal CES.
+* Making other combinations for a sector than the above results in errors. 
+Setting for example ETK=1 for a sector and GRAN<1 leads to wrong code.
+* Subtracting the numeraire from the price terms in demand and supply shifters 
+and generalized trade costs does not affect the outcomes of experiments. Only
+for a numeraire experiment this is necessary. However, given that the numeraire
+is subtracted from the price terms, the tab-file should be adjusted (in 2.2) 
+if the numeraire is changed in the cmf 
+
+   ------------------------------->! 
+
+
+!<  -------------------------------
+ 2.2  setting numeraire and defining additional coefficients 
+   ------------------------------->! 
+
+
+Variable (orig_level=1.0)
+    numeraire # Numeraire variable #;
+EQUATION num_eq
+    numeraire=pfactwld;
+
+Coefficient (all,i,COMM)
+    zeta(i)
+    # region-generic function of behavioral parameters theta and sigma #;
+Formula (all,i,COMM)
+    zeta(i) = [theta(i)-AKM_ESUBM(i)+1]/[[AKM_ESUBM(i)-1]*[AKM_ESUBM(i)-1]];
+
+Coefficient (all,i,COMM)
+    varpi(i)
+    # region-generic function of behavioral parameters theta and sigma #;
+Formula (all,i,COMM)
+    varpi(i) = (AKM_ESUBM(i)-1-THETA(i)*(NU(i)-1))/(AKM_ESUBM(i)-1);
+
+
+!<  -------------------------------
+ 2.3  Source industry scaling 
+   ------------------------------->! 
+
+
+VARIABLE (all,i,COMM)(all,r,REG)                            nne(i,r)
+       # number of entrants # ;
+VARIABLE (all,i,COMM)(all,r,REG)(all,s,REG)                 itc(i,r,s)
+       # normal iceberg trade costs in Ethier-Krugman/Melitz-specification # ;
+
+
+!Define the number of vareties term in Melitz!
+!
+EQUATION O_SCALE  (all,i,COMM)(all,r,REG)
+nne(i,r) = (VCB(i,r)/(VCB(i,r) - [AKM_ESUBM(i)/(AKM_ESUBM(i)-1)] * 
+SUM(t,reg, (VXSB(i,r,t)-VIWS(i,r,t))))) * qo(i,r) 
+- [AKM_ESUBM(i)/(AKM_ESUBM(i)-1)] * 
+SUM(s,reg, (VXSB(i,r,s)/(VCB(i,r) - SUM(t,reg, (VXSB(i,r,t)-VIWS(i,r,t))))) *
+ (pcif(i,r,s)+qxs(i,r,s) 
+- (VXWD(i,r,s)/VIWS(i,r,s)) * (pm(i,r) - numeraire -tx(i,r)-txs(i,r,s))
+- ((VIWS(i,r,s)-VXWD(i,r,s))/VIWS(i,r,s)) * ptrans(i,r,s) ) )
++ [AKM_ESUBM(i)/(AKM_ESUBM(i)-1)] * 
+SUM(s,reg, (VIWS(i,r,s)/(VCB(i,r) - SUM(t,reg, (VXSB(i,r,t)-VIWS(i,r,t))))) *
+(pcif(i,r,s)+qxs(i,r,s)-(pm(i,r)- numeraire)));
+!
+
+! We use an approximation of the above formula which generates almost identical
+results but solves much smoother. The above formula would deal correctly with
+the transport sector!
+
+EQUATION O_SCALE  (all,i,COMM)(all,r,REG)
+!nne(i,r) = qo(i,r);!
+nne(i,r) = qc(i,r);
+
+!Define the domestic variety scaling term in Melitz!
+EQUATION O_SCALEMD  (all,i,COMM)(all,r,REG)
+sshiftd(i,r) = [VARS(i)/(AKM_ESUBM(i)-1)] * nne(i,r)
+             -  zeta(i) * AKM_ESUBM(i) * [pds(i,r) - numeraire]; 
+
+
+!Define the exporter variety scaling term in Melitz!
+EQUATION O_SCALEMEX  (all,i,COMM)(all,r,REG)
+sshiftx(i,r)  = [VARS(i)/(AKM_ESUBM(i)-1)] * nne(i,r)
+              - zeta(i) * [pds(i,r) - numeraire]; 
+
+
+!
+Two remarks:
+1. The coefficients on the price term in domestic and exporting variety 
+scaling are different. For domestic variety scaling  it contains both the effect 
+of higher input bundle prices pm through fixed and variable costs generating a 
+coefficient zeta*sigma=(theta-sigma+1)/(sigma-1)+(theta-sigma+1)/((sigma-1)^2) 
+and the exporting variety scaling term contains only the effect through fixed 
+costs, zeta=(theta-sigma+1)/((sigma-1)^2. The input bundle in variable trade 
+costs is the cif price, so inclusive of the transport costs and is included in
+generalized trade costs, ams
+2. The coefficient on the price-term, g(i)*[pds(i,r)-numeraire] should
+be negative: an increase in the input price drives up the 
+effective input prices through the extensive relative to compositional margin
+and therefore the coefficient should be negative, such that the tech shifters
+sshiftd/sshiftx are affected negatively driving up prices!
+
+
+!<  -------------------------------
+ 2.4  Generalized iceberg trade costs 
+   ------------------------------->! 
+
+
+VARIABLE (all,i,COMM)(all,r,REG)(all,s,REG)                genitc(i,r,s)
+       # generalized iceberg trade costs in Melitz-specification # ;
+VARIABLE (all,i,COMM)(all,r,REG)(all,s,REG)                fex(i,r,s)
+       # fixed trade costs in Melitz-specification # ;
+
+
+!Melitz generalized iceberg trade costs!
+EQUATION GENITCEQ  (all,i,COMM)(all,r,REG)(all,s,REG)
+genitc(i,r,s) =  zeta(i)*AKM_ESUBM(i)*(tm(i,s)+tms(i,r,s)) 
+               + [theta(i)/(AKM_ESUBM(i)-1)] * itc(i,r,s) 
+               + zeta(i)*fex(i,r,s) 
+               + zeta(i)*(MM_ESUBM(i)-1) * (pcif(i,r,s)-numeraire);
+
+!Observe that theta=AKM_ESUBM-1 (granularity/ethier-krugman) implies genitc=itc, 
+corresponding with zeta=0! 
+
+EQUATION AMSEQ  (all,i,COMM)(all,r,REG)(all,s,REG)
+    ams(i,r,s)= -genitc(i,r,s);
+
+
+!<  -------------------------------
+ 2.5  Destination market scaling 
+   ------------------------------->! 
+
+VARIABLE (all,i,COMM)(all,r,REG)                           valueDm(i,r)
+       # total demand importer: because of notional demand scaling #;
+VARIABLE (all,i,COMM)(all,r,REG)                           valueDd(i,r)
+       # total demand domestic: because of notional demand scaling #;
+VARIABLE (all,i,COMM)(all,r,REG)                           priceDm(i,r)
+       # composite price importer: because of notional demand scaling #;
+VARIABLE (all,i,COMM)(all,r,REG)                           priceDd(i,r)
+       # composite price domestic: because of notional demand scaling #;
+VARIABLE (all,i,COMM)(all,r,REG)                           tariffDm(i,r)
+       # effect of group-specific import tariff on externality importer #;
+VARIABLE (all,i,COMM)(all,r,REG)                           tariffDd(i,r)
+       # effect of group-specific import tariffs on externality domestic #;
+VARIABLE (all,i,COMM)(all,r,REG)                           mmel(i,r)
+       # love of variety term Melitz#;
+VARIABLE (all,i,COMM)                                      metk(i)
+       # love of variety term Ethier Krugman#;
+VARIABLE (all,i,COMM)(all,r,REG)                           mh(i,r)
+       # love of variety term#;
+!
+Coefficient (all,i,COMM)(all,j,ACTS)(all,r,REG)
+    SHRIFM(i,j,r) # share of import i used by sector j in r  #;
+Formula (all,i,COMM)(all,j,ACTS)(all,r,REG)
+    SHRIFM(i,j,r) = VIFM(i,j,r) / VIM(i,r);
+
+Coefficient (all,i,COMM)(all,r,REG)
+    SHRIPM(i,r) # share of import i used by private hhlds in r #;
+Formula (all,i,COMM)(all,r,REG)
+    SHRIPM(i,r) = VIPM(i,r) / VIM(i,r);
+
+Coefficient (all,i,COMM)(all,r,REG)
+    SHRIGM(i,r) # the share of import i used by gov't hhlds in r #;
+Formula (all,i,COMM)(all,r,REG)
+    SHRIGM(i,r) = VIGM(i,r) / VIM(i,r);
+!
+EQUATION VREGDEMANDm
+# change in value of regional demand for commodity i #
+(all,i,COMM)(all,r,REG)
+valueDm(i,r) = PMCSHR(i,r)*[ppa(i,r) + qpa(i,r)] 
+             + GMCSHR(i,r)*[pga(i,r) + qga(i,r)]
+             + IMCSHR(i,r)*[pia(i,r) + qia(i,r)]
+             + sum(j,ACTS, (FMCSHR(i,j,r) * [pfa(i,j,r) + qfa(i,j,r)]));
+
+EQUATION VREGDEMANDd
+# change in value of regional demand for commodity i #
+(all,i,COMM)(all,r,REG)
+valueDd(i,r) = PDCSHR(i,r)*[ppa(i,r) + qpa(i,r)] 
+             + GDCSHR(i,r)*[pga(i,r) + qga(i,r)]
+             + IDCSHR(i,r)*[pia(i,r) + qia(i,r)]
+             + sum(j,ACTS, (FDCSHR(i,j,r) * [pfa(i,j,r) + qfa(i,j,r)]));
+
+!Eddy: The value- and price-component of the demand shifter consist of either 
+domestic or importer demand of the three groups of agents and not of domestic 
+plus importer demand. The reason is that the shares of demand by end user 
+(private consumer, government, firms, or investment) differs in the data between 
+importer and domestic demand!
+
+EQUATION PREGDEMANDm
+# change in value of regional price for commodity i #
+(all,i,COMM)(all,r,REG)
+priceDm(i,r) = PMCSHR(i,r) * ppa(i,r) + GMCSHR(i,r) * pga(i,r) 
+        + IMCSHR(i,r)*pia(i,r) + sum(j,ACTS, (FMCSHR(i,j,r) * pfa(i,j,r)));
+
+EQUATION PREGDEMANDd
+# change in value of regional price for commodity i #
+(all,i,COMM)(all,r,REG)
+priceDd(i,r) = PDCSHR(i,r) * ppa(i,r) + GDCSHR(i,r) * pga(i,r)
+        + IDCSHR(i,r)*pia(i,r) + sum(j,ACTS, (FDCSHR(i,j,r) * pfa(i,j,r)));
+
+EQUATION TREGDEMANDm
+# change in value of regional tariff for commodity i #
+(all,i,COMM)(all,r,REG)
+tariffDm(i,r) = PMCSHR(i,r) * tpm(i,r) + GMCSHR(i,r) * tgm(i,r)
+        + IMCSHR(i,r)*pia(i,r) + sum(j,ACTS, (FMCSHR(i,j,r) * tfm(i,j,r)));
+
+EQUATION TREGDEMANDd
+# change in value of regional tariff for commodity i #
+(all,i,COMM)(all,r,REG)
+tariffDd(i,r) = PDCSHR(i,r) * tpd(i,r) + GDCSHR(i,r) * tgd(i,r)
+        + IDCSHR(i,r)*pia(i,r) + sum(j,ACTS, (FDCSHR(i,j,r) * tfd(i,j,r)));
+
+!Prepare calculation of love of variety term in Melitz!
+
+COEFFICIENT (all,i,COMM)(all,r,REG)(all,s,REG)
+        SHRM(i,r,s) # Share of imports from country r into country s #;
+COEFFICIENT (all,i,COMM)(all,s,REG)
+        SHRD(i,s) # Share of domestic purchases in country s #;
+
+FORMULA (all,i,COMM)(all,r,REG)(all,s,REG)
+SHRM(i,r,s) = VMSB(i,r,s)/(SUM(t,REG,VMSB(i,t,s))+VDB(i,s));
+FORMULA (all,i,COMM)(all,s,REG)
+SHRD(i,s) = VDB(i,s)/(SUM(t,REG,VMSB(i,t,s))+VDB(i,s)); 
+
+
+EQUATION MMEL_EQ  (all,i,COMM)(all,s,REG)
+varpi(i)*mmel(i,s)= 
+          SUM(r,REG,SHRM(i,r,s) * ( nne(i,r)-(theta(i)/(AKM_ESUBM(i)-1))*(fex(i,r,s)
+        + [pds(i,r)-numeraire]+tm(i,s)+tms(i,r,s))
+	      - theta(i) * (tm(i,s)+tms(i,r,s)+itc(i,r,s)+pcif(i,r,s)-numeraire) ) )
+	      + (theta(i)/(AKM_ESUBM(i)-1)) * (1-SHRD(i,s))
+        * ((AKM_ESUBd(i)-1)*(priceDm(i,s)-numeraire) 
+        + (AKM_ESUBM(i)-AKM_ESUBd(i))*(pim(i,s)-numeraire)
+        + (valueDm(i,s)-numeraire) - AKM_ESUBd(i)*tariffDm(i,s))
+        + SHRD(i,s) * (nne(i,s)-(theta(i)/(AKM_ESUBM(i)-1))*[pds(i,s)-numeraire]
+        - theta(i) * (pds(i,s)-numeraire))
+        + (theta(i)/(AKM_ESUBM(i)-1)) * SHRD(i,s)
+        * ((AKM_ESUBd(i)-1)*(priceDd(i,s)-numeraire)
+        + (AKM_ESUBM(i)-AKM_ESUBd(i))*(pds(i,s)-sshiftd(i,s)-dshiftd(i,s)-numeraire)
+        + (valueDd(i,s)-numeraire)
+        - AKM_ESUBd(i)*tariffDd(i,s));
+
+
+!Prepare calculation of love of variety term in Ethier-Krugman!
+
+COEFFICIENT (all,i,COMM)(all,r,REG)
+        SHGO(i,r) #share of gross output of country r in world gross output#;
+FORMULA (all,i,COMM)(all,r,REG)
+        SHGO(i,r)=VCB(i,r)/SUM(s,REG,VCB(i,s));
+
+EQUATION METK_EQ  (all,i,COMM)
+metk(i)=SUM(s,REG,(SHGO(i,s) * nne(i,s))); 
+
+
+!Calculate love of variety term (choosing between Melitz and Ethier-Krugman)!
+EQUATION MH_EQ  (all,i,COMM)(all,s,REG)
+mh(i,s) = VARS(i)*{(1-ETK(i))*mmel(i,s)+ETK(i)*metk(i)};
+
+EQUATION D_SCALED  (all,i,COMM)(all,r,REG)
+dshiftd(i,r)  = zeta(i) * (AKM_ESUBd(i)-1) * [priceDd(i,r)-numeraire] 
+              + zeta(i) * (valueDd(i,r)-numeraire)
+              + zeta(i) * (AKM_ESUBM(i) - AKM_ESUBd(i)) * (pds(i,r)-sshiftd(i,r)
+                -dshiftd(i,r)-numeraire)
+              - zeta(i) * AKM_ESUBd(i) * tariffDd(i,r)
+              + (nu(i)-1)*((1/(AKM_ESUBM(i)-1))+zeta(i))*mh(i,r);
+
+EQUATION D_SCALEM  (all,i,COMM)(all,r,REG)
+dshiftm(i,r)  = zeta(i)*(AKM_ESUBd(i)-1) * [priceDm(i,r)-numeraire] 
+              + zeta(i) * (valueDm(i,r)-numeraire)
+              + zeta(i) * (AKM_ESUBM(i) - AKM_ESUBd(i)) * (pim(i,r)-numeraire)
+              - zeta(i) * AKM_ESUBd(i) * tariffDm(i,r)
+              + (nu(i)-1)*((1/(AKM_ESUBM(i)-1))+zeta(i))*mh(i,r);
+
+
+!<  -------------------------------
+ 2.6  Margin Decomposition 
+   ------------------------------->! 
+
+!We decompose the total change in trade flows into an extensive margin, extm,
+intensive margin, intm, and compositional margin, compm, following the
+definitions in Head and Mayer (2014).
+These margins are simply calculated as residual variables, based upon the 
+solved endogenous variables, so they do not eat into the computational burden
+of solving the model!
+
+
+VARIABLE (all,i,COMM)(all,r,REG)(all,s,REG)                psistar(i,r,s)
+       # extensive margin # ;
+VARIABLE (linear,change)(all,i,COMM)(all,r,REG)(all,s,REG) extmn(i,r,s)
+       # extensive margin number of entrants component# ;
+VARIABLE (linear,change)(all,i,COMM)(all,r,REG)(all,s,REG) extmpsi(i,r,s)
+       # extensive margin cutoff productivity component # ;
+VARIABLE (linear,change)(all,i,COMM)(all,r,REG)(all,s,REG) extmparts(i,r,s)
+       # extensive margin based on number entrants and cutoff #;
+VARIABLE (linear,change)(all,i,COMM)(all,r,REG)(all,s,REG) extmcheck(i,r,s)
+       # comparison extensive margin calculations# ;
+VARIABLE (linear,change)(all,i,COMM)(all,r,REG)(all,s,REG) extm(i,r,s)
+       # extensive margin # ;
+VARIABLE (linear,change)(all,i,COMM)(all,r,REG)(all,s,REG) intm(i,r,s)
+       # intensive margin # ;
+VARIABLE (linear,change)(all,i,COMM)(all,r,REG)(all,s,REG) compm(i,r,s)
+       # compositional margin # ;
+VARIABLE (linear,change)(all,i,COMM)(all,r,REG)(all,s,REG) 
+                                                               compmparts(i,r,s)
+       # compositional margin calculated from psistar# ;
+VARIABLE (linear,change)(all,i,COMM)(all,r,REG)(all,s,REG) 
+                                                               compmcheck(i,r,s)
+       # comparison compositional margin calculations# ;
+VARIABLE (linear,change)(all,i,COMM)(all,r,REG)(all,s,REG) totm(i,r,s)
+       # total margin # ;
+VARIABLE (linear,change)(all,r,REG)                             totmexp(r)
+       # total margin exporter # ;
+VARIABLE (linear,change)(all,r,REG)                             totmexpch(r)
+       # total margin exporter # ;
+VARIABLE (linear,change)(all,r,REG)                             totmexpchs(r)
+       # total margin exporter # ;
+VARIABLE (linear,change)(all,r,REG)                             extmexp(r)
+       # extensive margin exporter # ;
+VARIABLE (linear,change)(all,r,REG)                             intmexp(r)
+       # intensive margin exporter # ;
+VARIABLE (linear,change)(all,r,REG)                             compmexp(r)
+       # compositional margin exporter # ;
+VARIABLE (linear,change)(all,r,REG)                             extcompmexp(r)
+       # sum of extensive and compositional margin exporter # ;
+VARIABLE (linear,change)(all,r,REG)                             totmdom(r)
+       # total margin domestic sales # ;
+VARIABLE (linear,change)(all,r,REG)                             totmdomch(r)
+       # total margin domestic sales # ;
+VARIABLE (linear,change)(all,r,REG)                             extmdom(r)
+       # extensive margin domestic sales # ;
+VARIABLE (linear,change)(all,r,REG)                             intmdom(r)
+       # intensive margin domestic sales # ;
+VARIABLE (linear,change)(all,r,REG)                             compmdom(r)
+       # compositional margin domestic sales # ;
+VARIABLE (linear,change)(all,i,COMM)(all,r,REG)(all,s,REG) totmparts(i,r,s)
+       # total margin calculated from cutoff productivity# ;
+VARIABLE (linear,change)(all,i,COMM)(all,r,REG)(all,s,REG) vtrade(i,r,s)
+       # value of trade flows # ;
+VARIABLE (linear,change)(all,i,COMM)(all,r,REG)(all,s,REG) totmtot(i,r,s)
+       # total margin separately calculated # ;
+VARIABLE (linear,change)(all,i,COMM)(all,r,REG)(all,s,REG) totmcheck(i,r,s)
+       # total margin minus exports # ;
+VARIABLE (linear,change)(all,i,COMM)(all,r,REG)(all,s,REG) 
+                                                               totmcheck2(i,r,s)
+       # total margin minus exports # ;
+VARIABLE (linear,change)(all,i,COMM)(all,r,REG)(all,s,REG)
+                                                               totmcheck3(i,r,s)
+       # total margin from parts minus total margin separately calculated # ;
+
+VARIABLE (all,i,COMM)(all,s,REG)                           psistard(i,s)
+       # extensive margin domestic sales# ;
+VARIABLE (linear,change)(all,i,COMM)(all,s,REG)            extmd(i,s)
+       # extensive margin  domestic sales# ;
+VARIABLE (linear,change)(all,i,COMM)(all,s,REG)            intmd(i,s)
+       # intensive margin  domestic sales# ;
+VARIABLE (linear,change)(all,i,COMM)(all,s,REG)            compmd(i,s)
+       # compositional margin  domestic sales # ;
+VARIABLE (linear,change)(all,i,COMM)(all,s,REG)            totmd(i,s)
+       # total margin domestic sales # ;
+VARIABLE (linear,change)(all,i,COMM)(all,s,REG)            totmtotd(i,s)
+       # total margin separately calculated domestic sales # ;
+VARIABLE (linear,change)(all,i,COMM)(all,s,REG)            totmcheckd(i,s)
+       # total margin minus exports domestic sales # ;
+VARIABLE (linear,change)(all,i,COMM)(all,s,REG)            totmcheck2d(i,s)
+       # total margin minus exports domestic sales # ;
+VARIABLE (linear,change)(all,i,COMM)(all,s,REG)            totmcheck3d(i,s)
+       # total margin minus exports domestic sales # ;
+
+
+VARIABLE (linear,change)(all,i,COMM)(all,s,REG)         decomp_chm(i,s)
+       # check on decomposition of sectoral domestic and exporting sales #;
+
+VARIABLE (linear,change)(all,i,COMM)(all,s,REG)         decomp_extmd(i,s)
+       # contribution to sales of extensive margin domestic sales# ;
+VARIABLE (linear,change)(all,i,COMM)(all,s,REG)         decomp_intmd(i,s)
+       # contribution to sales of intensive margin  domestic sales# ;
+VARIABLE (linear,change)(all,i,COMM)(all,s,REG)         decomp_compmd(i,s)
+       # contribution to sales of compositional margin domestic sales # ;
+VARIABLE (linear,change)(all,i,COMM)(all,s,REG)         decomp_extmx(i,s)
+       # contribution to sales of extensive margin exporting sales# ;
+VARIABLE (linear,change)(all,i,COMM)(all,s,REG)         decomp_intmx(i,s)
+       # contribution to sales of intensive margin exporting sales# ;
+VARIABLE (linear,change)(all,i,COMM)(all,s,REG)         decomp_compmx(i,s)
+       # contribution to sales of compositional margin exporting sales # ;
+VARIABLE (linear,change)(all,i,COMM)(all,s,REG)         decomp_trprice(i,s)
+       # contribution to sales of compositional margin exporting sales # ;
+VARIABLE (linear,change)(all,i,MARG)(all,s,REG)         decomp_trans(i,s)
+       # contribution to sales of trade price margin # ;
+VARIABLE (linear,change)(all,i,COMM)(all,s,REG)         decomp_chparts(i,s)
+       # Check on decomposition parts # ;
+VARIABLE (linear,change)(all,i,COMM)(all,s,REG)         decomp_total(i,s)
+       # Total change in sectoral sales #;
+VARIABLE (all,i,COMM)(all,s,REG)                        mh_alt(i,s)
+       # Alternative calculation of mh #;
+
+
+EQUATION PSISTAREQ  (all,i,COMM)(all,r,REG)(all,s,REG)
+psistar(i,r,s) = VARS(i)*(1-ETK(i))*{(1/(AKM_ESUBM(i)-1)) * [pds(i,r)]
+               + (1+(1/(AKM_ESUBM(i)-1))) * (tm(i,s) + tms(i,r,s))
+               + (itc(i,r,s) + pcif(i,r,s))
+               + (1/(AKM_ESUBM(i)-1)) * fex(i,r,s)
+               - ((nu(i)-1)/(AKM_ESUBM(i)-1)) * mh(i,s)
+               - ((AKM_ESUBd(i)-1)/(AKM_ESUBM(i)-1)) * priceDm(i,s) 
+               - (1/(AKM_ESUBM(i)-1)) * valueDm(i,s)
+               + (AKM_ESUBd(i)/(AKM_ESUBM(i) - 1)) * tariffDm(i,s)
+               - ((AKM_ESUBM(i)-AKM_ESUBd(i))/(AKM_ESUBM(i)-1)) * pim(i,s)};
+
+
+EQUATION EXTMEQ  (all,i,COMM)(all,r,REG)(all,s,REG)
+extm(i,r,s) =  0.01*VXSB(i,r,s)
+               * {VARS(i)*(1-ETK(i))*{- (theta(i)/(AKM_ESUBM(i)-1)) * [pds(i,r)]
+               - (theta(i)+(theta(i)/(AKM_ESUBM(i)-1))) * (tm(i,s) + tms(i,r,s))
+               - theta(i) * (itc(i,r,s) + pcif(i,r,s))
+               - (theta(i)/(AKM_ESUBM(i)-1)) * fex(i,r,s)  
+               + ((nu(i)-1)*theta(i)/(AKM_ESUBM(i)-1))*mh(i,s)
+               + theta(i)*((AKM_ESUBd(i)-1)/(AKM_ESUBM(i)-1))*priceDm(i,s) 
+               + (theta(i)/(AKM_ESUBM(i)-1)) * valueDm(i,s)
+               - ((AKM_ESUBd(i) * theta(i))/(AKM_ESUBM(i) - 1)) * tariffDm(i,s)
+               + theta(i)*((AKM_ESUBM(i)-AKM_ESUBd(i))/(AKM_ESUBM(i)-1))*pim(i,s)} 
+               + VARS(i) * nne(i,r)};
+
+!The part between curley brackets is for the Melitz EM, the term in nne for 
+both the Melitz and ETK EM!
+
+EQUATION EXTM1EQ  (all,i,COMM)(all,r,REG)(all,s,REG)
+extmpsi(i,r,s) =  0.01*VXSB(i,r,s)
+               * {VARS(i)*(1-ETK(i))*{- theta(i) * psistar(i,r,s)}};
+
+EQUATION EXTM2EQ  (all,i,COMM)(all,r,REG)(all,s,REG)
+extmn(i,r,s) =  0.01*VXSB(i,r,s) * {VARS(i) * nne(i,r)};
+
+EQUATION EXTMPSIEQ  (all,i,COMM)(all,r,REG)(all,s,REG)
+extmparts(i,r,s) =  extmpsi(i,r,s) + extmn(i,r,s);
+
+EQUATION EXTMCEQ  (all,i,COMM)(all,r,REG)(all,s,REG)
+extmcheck(i,r,s) =  extm(i,r,s) - extmparts(i,r,s);
+
+EQUATION INTMEQ  (all,i,COMM)(all,r,REG)(all,s,REG)
+intm(i,r,s) =  0.01*VXSB(i,r,s)
+               * {VARS(i)*(1-ETK(i))*{- (AKM_ESUBM(i)-1)*(tm(i,s) + tms(i,r,s) 
+               + itc(i,r,s) + pcif(i,r,s))
+               + (nu(i)-1)*mh(i,s) + (AKM_ESUBd(i)-1) * priceDm(i,s) + valueDm(i,s)
+               - AKM_ESUBd(i)*tariffDm(i,s) + (AKM_ESUBM(i)-AKM_ESUBd(i)) *pim(i,s)}
+               + ((1-VARS(i))+ ETK(i)) * {pmds(i,r,s) - ams(i,r,s) + qim(i,s)
+               - AKM_ESUBM(i)*[pmds(i,r,s)-ams(i,r,s)-pim(i,s)]
+               + (nu(i)-1)*mh(i,s)}}; 
+               
+!The part premultiplied by VARS(i)*(1-ETK(i)) is for Melitz, the part
+premultiplied by ((1-VARS(i))+ ETK(i)) for either ETK or ARM!
+
+EQUATION COMPMEQ  (all,i,COMM)(all,r,REG)(all,s,REG)
+compm(i,r,s)  =  0.01*VXSB(i,r,s)
+               * {VARS(i)*(1-ETK(i))*{pds(i,r)
+               + AKM_ESUBM(i) * (tm(i,s) + tms(i,r,s))
+               + (AKM_ESUBM(i)-1)*(itc(i,r,s) + pcif(i,r,s))
+               + fex(i,r,s) - (nu(i)-1) * mh(i,s)
+               - (AKM_ESUBd(i)-1)*priceDm(i,s) 
+               - valueDm(i,s) + AKM_ESUBd(i) * tariffDm(i,s)
+               - (AKM_ESUBM(i)-AKM_ESUBd(i))* pim(i,s)}};
+
+
+EQUATION COMPMPSIEQ  (all,i,COMM)(all,r,REG)(all,s,REG)
+compmparts(i,r,s)  = 0.01*VXSB(i,r,s) * {(AKM_ESUBM(i)-1) * psistar(i,r,s)};
+
+EQUATION COMPMCEQ  (all,i,COMM)(all,r,REG)(all,s,REG)
+compmcheck(i,r,s)  = compm(i,r,s) - compmparts(i,r,s);
+
+EQUATION TOTMEQ  (all,i,COMM)(all,r,REG)(all,s,REG)
+totm(i,r,s)    =  extm(i,r,s) + intm(i,r,s) + compm(i,r,s);
+
+Coefficient (all,i,COMM)(all,r,REG)(all,s,REG)
+  SHRXM(i,r,s) #share of export sales in sector i to s in total export sales r#;
+Formula (all,i,COMM)(all,r,REG)(all,s,REG)
+  SHRXM(i,r,s) = VXSB(i,r,s)/SUM(k,COMM,SUM(t,REG,VXSB(k,r,t)));
+
+EQUATION TOTMEXPEQ  (all,r,REG)
+totmexp(r)    =  SUM(i,COMM,SUM(s,REG,SHRXM(i,r,s)*totm(i,r,s)));
+
+EQUATION EXTMEXPEQ  (all,r,REG)
+extmexp(r)    =  SUM(i,COMM,SUM(s,REG,SHRXM(i,r,s)*extm(i,r,s)));
+
+EQUATION INTMEXPEQ  (all,r,REG)
+intmexp(r)    =  SUM(i,COMM,SUM(s,REG,SHRXM(i,r,s)*intm(i,r,s)));
+
+EQUATION COMPMEXPEQ  (all,r,REG)
+compmexp(r)   =  SUM(i,COMM,SUM(s,REG,SHRXM(i,r,s)*compm(i,r,s)));
+
+EQUATION TOTMEXPCHEQ (all,r,REG)
+totmexpch(r)    = totmexp(r)-extmexp(r)-intmexp(r)-compmexp(r);
+
+EQUATION TOTMEXPCHSEQ (all,r,REG)
+totmexpchs(r)    = extmexp(r) + intmexp(r) + compmexp(r);
+
+EQUATION EXTCOMPMEQ (all,r,REG)
+extcompmexp(r)    = extmexp(r) + compmexp(r);
+
+
+
+EQUATION TOTMPSIEQ  (all,i,COMM)(all,r,REG)(all,s,REG)
+totmparts(i,r,s)   =  extmparts(i,r,s) + intm(i,r,s) + compmparts(i,r,s);
+
+EQUATION VTRADEMEQ  (all,i,COMM)(all,r,REG)(all,s,REG)
+vtrade(i,r,s) =  0.01*VXSB(i,r,s) * {qxs(i,r,s) + pmds(i,r,s)};
+
+EQUATION TOTMCHEQ  (all,i,COMM)(all,r,REG)(all,s,REG)
+totmtot(i,r,s) = 0.01*VXSB(i,r,s)
+               * {VARS(i)*(1-ETK(i))* {
+              - ((theta(i)-AKM_ESUBM(i)+1)/(AKM_ESUBM(i)-1)) * (pds(i,r))+ nne(i,r) 
+              - (theta(i)+((theta(i)-AKM_ESUBM(i)+1)/(AKM_ESUBM(i)-1))) * 
+                (tm(i,s)+tms(i,r,s)) - theta(i) * (itc(i,r,s)+pcif(i,r,s))
+              + ((theta(i)-AKM_ESUBM(i)+1)/(AKM_ESUBM(i)-1)) * fex(i,r,s)
+              + ((nu(i)-1)*theta(i)/(AKM_ESUBM(i)-1))*mh(i,s)
+              + theta(i)*((AKM_ESUBd(i)-1)/(AKM_ESUBM(i)-1))*priceDm(i,s) 
+              + (theta(i)/(AKM_ESUBM(i)-1)) * valueDm(i,s)
+              - ((AKM_ESUBd(i)*theta(i))/(AKM_ESUBM(i)-1)) * tariffDm(i,s)
+              + theta(i)*((AKM_ESUBM(i)-AKM_ESUBd(i))/(AKM_ESUBM(i)-1))*pim(i,s)}
+              +((1-VARS(i))+ETK(i))*{pmds(i,r,s)-ams(i,r,s)-sshiftx(i,r)+qim(i,s)
+              - AKM_ESUBM(i) * [pmds(i,r,s) - ams(i,r,s) - sshiftx(i,r) - pim(i,s)]
+              + (nu(i)-1)*mh(i,s)}};
+
+!The part premultiplied by VARS(i)*(1-ETK(i)) is for Melitz, the part
+premultiplied by ((1-VARS(i))+ ETK(i)) for either ETK or ARM!
+
+EQUATION TOTMCCHEQ  (all,i,COMM)(all,r,REG)(all,s,REG)
+totmcheck(i,r,s) =   totm(i,r,s) - vtrade(i,r,s);
+
+EQUATION TOTMCEQ  (all,i,COMM)(all,r,REG)(all,s,REG)
+totmcheck2(i,r,s) =  totmparts(i,r,s) -vtrade(i,r,s);
+
+EQUATION TOTMC2EQ  (all,i,COMM)(all,r,REG)(all,s,REG)
+totmcheck3(i,r,s) =   totmtot(i,r,s) - vtrade(i,r,s);
+
+!The variables totmcheck are calculated to check that the decomposed terms are
+correct!
+
+EQUATION PSISTARDEQ  (all,i,COMM)(all,s,REG)
+psistard(i,s)  = VARS(i)*(1-ETK(i))* {(AKM_ESUBM(i)/(AKM_ESUBM(i)-1)) * [pds(i,s)]
+               - ((nu(i)-1)/(AKM_ESUBM(i)-1)) * mh(i,s)
+               - ((AKM_ESUBd(i)-1)/(AKM_ESUBM(i)-1)) * priceDd(i,s) 
+               - (1/(AKM_ESUBM(i)-1)) * valueDd(i,s)
+               + (AKM_ESUBd(i)/(AKM_ESUBM(i) - 1)) * tariffDd(i,s)
+               - ((AKM_ESUBM(i)-AKM_ESUBd(i))/(AKM_ESUBM(i)-1)) * 
+                 [pds(i,s)-sshiftd(i,s)-dshiftd(i,s)]};
+
+EQUATION EXTMPSIDEQ  (all,i,COMM)(all,s,REG)
+extmd(i,s)     =  0.01*VDB(i,s)*{VARS(i)*(1-ETK(i))* {- theta(i) * psistard(i,s)} 
+                  + VARS(i) * nne(i,s)};
+
+EQUATION COMPMPSIDEQ  (all,i,COMM)(all,s,REG)
+compmd(i,s)    = 0.01*VDB(i,s)*{(AKM_ESUBM(i)-1) * psistard(i,s)};
+
+EQUATION INTMDEQ  (all,i,COMM)(all,s,REG)
+intmd(i,s)  =  0.01*VDB(i,s)*
+              {VARS(i)*(1-ETK(i))* {- (AKM_ESUBd(i)-1)*(pds(i,s)) + (nu(i)-1)*mh(i,s) 
+               + (AKM_ESUBd(i)-1) * priceDd(i,s) + valueDd(i,s) 
+               - AKM_ESUBd(i)*tariffDd(i,s)} 
+               - VARS(i)*{(AKM_ESUBM(i)-AKM_ESUBd(i)) *(sshiftd(i,s)+dshiftd(i,s))}
+               + ((1-VARS(i))+ ETK(i)) * 
+               {sum(j,ACTS, FMCSHR(i,j,s) * {pds(i,s)+qfa(i,j,s)
+              - AKM_ESUBd(i)*[pfd(i,j,s)-pfa(i,j,s)]})
+              + PMCSHR(i,s)*{pds(i,s)+qpa(i,s)-AKM_ESUBd(i)*[ppd(i,s)-ppa(i,s)]}
+              + GMCSHR(i,s)*{pds(i,s)+qga(i,s)-AKM_ESUBd(i)*[pgd(i,s)-pga(i,s)]}
+              + IMCSHR(i,s)*{pds(i,s)+qia(i,s)-AKM_ESUBd(i)*[pid(i,s)-pia(i,s)]}
+              + (nu(i)-1)*mh(i,s)}}; 
+
+!The part premultiplied by VARS(i)*(1-ETK(i)) is for Melitz, the part
+premultiplied by ((1-VARS(i))+ ETK(i)) for either ETK or ARM!
+                
+EQUATION TOTMDEQ  (all,i,COMM)(all,s,REG)
+totmd(i,s)     =  extmd(i,s) + intmd(i,s) + compmd(i,s);
+
+Coefficient (all,i,COMM)(all,r,REG)
+  SHRDMS(i,r) #share of domestic sales in sector i in total domestic sales r#;
+Formula (all,i,COMM)(all,r,REG)
+  SHRDMS(i,r) = VDB(i,r)/SUM(k,COMM,VDB(k,r));
+
+EQUATION TOTMDOMEQ  (all,r,REG)
+totmdom(r)    =  SUM(i,COMM,SHRDMS(i,r)*totmd(i,r));
+
+EQUATION EXTMDOMEQ  (all,r,REG)
+extmdom(r)    =  SUM(i,COMM,SHRDMS(i,r)*extmd(i,r));
+
+EQUATION INTMDOMEQ  (all,r,REG)
+intmdom(r)    =  SUM(i,COMM,SHRDMS(i,r)*intmd(i,r));
+
+EQUATION COMPMDOMEQ  (all,r,REG)
+compmdom(r)   =  SUM(i,COMM,SHRDMS(i,r)*compmd(i,r));
+
+EQUATION TOTMDOMCHEQ (all,r,REG)
+totmdomch(r)    = totmdom(r)-extmdom(r)-intmdom(r)-compmdom(r);
+
+EQUATION TOTMCHDEQ  (all,i,COMM)(all,s,REG)
+totmtotd(i,s) = 0.01*VDB(i,s)*{VARS(i)*(1-ETK(i))* {
+               -((theta(i)*AKM_ESUBd(i)-AKM_ESUBM(i)+1)/(AKM_ESUBM(i)-1))*(pds(i,s)) 
+               + vars(i) * nne(i,s) 
+              + ((nu(i)-1)*theta(i)/(AKM_ESUBM(i)-1))*mh(i,s)
+              + theta(i)*((AKM_ESUBd(i)-1)/(AKM_ESUBM(i)-1))*priceDd(i,s) 
+              + (theta(i)/(AKM_ESUBM(i)-1)) * valueDd(i,s)
+              - ((AKM_ESUBd(i)*theta(i))/(AKM_ESUBM(i)-1)) * tariffDd(i,s)
+              - theta(i)*((AKM_ESUBM(i)-AKM_ESUBd(i))/(AKM_ESUBM(i)-1))
+              * (sshiftd(i,s)+dshiftd(i,s))}
+              + ((1-VARS(i))+ ETK(i)) * 
+               {sum(j,ACTS, FMCSHR(i,j,s)*{pds(i,s)-sshiftd(i,s) 
+              - dshiftd(i,s) + qfa(i,j,s) 
+              - AKM_ESUBd(i) * [pfd(i,j,s)- sshiftd(i,s)-dshiftd(i,s)-pfa(i,j,s)]})
+              + PMCSHR(i,s) * {pds(i,s) - sshiftd(i,s) - dshiftd(i,s) + qpa(i,s) 
+              - AKM_ESUBd(i)*[ppd(i,s) - sshiftd(i,s)  - dshiftd(i,s) - ppa(i,s)]}
+              + GMCSHR(i,s) * {pds(i,s) - sshiftd(i,s) - dshiftd(i,s) + qga(i,s) 
+              - AKM_ESUBd(i)*[pgd(i,s) - sshiftd(i,s)  - dshiftd(i,s) - pga(i,s)]}
+              + IMCSHR(i,s) * {pds(i,s) - sshiftd(i,s) - dshiftd(i,s) + qia(i,s) 
+              - AKM_ESUBd(i)*[pid(i,s) - sshiftd(i,s)  - dshiftd(i,s) - pia(i,s)]}
+              }};
+
+!The part premultiplied by VARS(i)*(1-ETK(i)) is for Melitz, the part
+premultiplied by ((1-VARS(i))+ ETK(i)) for either ETK or ARM!
+
+EQUATION TOTMCCHDEQ  (all,i,COMM)(all,s,REG)
+totmcheckd(i,s) =  totmd(i,s) - 0.01*VDB(i,s)*{pds(i,s) + qds(i,s)};
+
+EQUATION TOTMCCHD2EQ  (all,i,COMM)(all,s,REG)
+totmcheck2d(i,s) =  totmd(i,s) - totmtotd(i,s);
+
+EQUATION TOTMCDEQ  (all,i,COMM)(all,s,REG)
+totmcheck3d(i,s) = totmtotd(i,s) - 0.01*VDB(i,s)*{pds(i,s) + qds(i,s)};
+
+Equation DECOMP_MARG
+# eq'n to check that the value of supply equals value of demand #
+(all,m,MARG)(all,r,REG)
+decomp_chm(m,r)=
+        0.01*VCB(m,r)*{pds(m,r) + qc(m,r)}
+        - {0.01*VDB(m,r) * (pds(m,r) + qds(m,r))
+        + 0.01*VST(m,r) * (pds(m,r) + qst(m,r))
+        + sum(s,REG, 0.01*VXSB(m,r,s) * (pmds(m,r,s) + qxs(m,r,s)))
+        + sum(s,REG, 0.01*VXSB(m,r,s) * (pds(m,r) - pmds(m,r,s)))};
+
+Equation DECOMP_NMRG
+# eq'n to check that the value of supply equals value of demand #
+(all,i,NMRG_COMM)(all,r,REG)
+decomp_chm(i,r)=
+        0.01*VCB(i,r)*{pds(i,r) + qc(i,r)}
+        - {0.01*VDB(i,r) * (pds(i,r) + qds(i,r))
+        + sum(s,REG, 0.01*VXSB(i,r,s) * (pmds(i,r,s) + qxs(i,r,s)))
+        + sum(s,REG, 0.01*VXSB(i,r,s) * (pds(i,r) - pmds(i,r,s)))};
+
+Equation decomp_extmd_eq
+# Domestic extensive margin contribution to total sales #
+(all,i,COMM)(all,s,REG)
+decomp_extmd(i,s) = 0.01*VDB(i,s) * extmd(i,s);
+
+Equation decomp_intmd_eq
+# Domestic intensive margin contribution to total sales #
+(all,i,COMM)(all,s,REG)
+decomp_intmd(i,s) = 0.01*VDB(i,s) * intmd(i,s);
+
+Equation decomp_compmd_eq
+# Domestic compositional margin contribution to total sales #
+(all,i,COMM)(all,s,REG)
+decomp_compmd(i,s) = 0.01*VDB(i,s) * compmd(i,s);
+
+Equation decomp_extmx_eq
+# Exporter extensive margin contribution to total sales #
+(all,i,COMM)(all,r,REG)
+decomp_extmx(i,r) = sum(s,REG, 0.01*VXSB(i,r,s) * extm(i,r,s));
+
+Equation decomp_intmx_eq
+# Exporter intensive margin contribution to total sales #
+(all,i,COMM)(all,r,REG)
+decomp_intmx(i,r) = sum(s,REG, 0.01*VXSB(i,r,s) * intm(i,r,s));
+
+Equation decomp_compmx_eq
+# Exporter compositional margin contribution to total sales #
+(all,i,COMM)(all,r,REG)
+decomp_compmx(i,r) = sum(s,REG, 0.01*VXSB(i,r,s) * compm(i,r,s));
+
+Equation decomp_trans_eq
+# Transport sector contribution to total sales #
+(all,m,MARG)(all,s,REG)
+decomp_trans(m,s) =  0.01*VST(m,s) * (pds(m,s) + qst(m,s));
+
+Equation decomp_trprice_eq
+# Trade price margin contribution to total sales #
+(all,i,COMM)(all,r,REG)
+decomp_trprice(i,r) = sum(s,REG, 0.01*VXSB(i,r,s) * (pds(i,r) - pmds(i,r,s)));
+
+Equation decomp_chparts_marg
+# Check on decomposition parts margin commodities#
+(all,m,MARG)(all,s,REG)
+decomp_chparts(m,s) = 0.01*VCB(m,s)*{pds(m,s) + qc(m,s)} - 
+                      {decomp_trans(m,s)+decomp_trprice(m,s)+decomp_extmd(m,s)
+                      + decomp_intmd(m,s)+decomp_compmd(m,s)+decomp_extmx(m,s)
+                      + decomp_intmx(m,s)+decomp_compmx(m,s)};
+
+Equation decomp_chparts_nmrg
+# Check on decomposition parts non-margin commodities#
+(all,i,NMRG_COMM)(all,r,REG)
+decomp_chparts(i,r) = 0.01*VCB(i,r)*{pds(i,r) + qc(i,r)} - 
+                      {decomp_trprice(i,r)+decomp_extmd(i,r)
+                      + decomp_intmd(i,r)+decomp_compmd(i,r)+decomp_extmx(i,r)
+                      + decomp_intmx(i,r)+decomp_compmx(i,r)};
+
+Equation decomp_total_eq
+# Total change in sectoral sales #
+(all,i,COMM)(all,s,REG)
+decomp_total(i,s) = 0.01*VCB(i,s)*{pds(i,s) + qc(i,s)}; 
+
+Equation mh_alt_eq
+# Alternative calculation of mh to check corrctness of equation for  mh#
+(all,i,COMM)(all,s,REG)
+mh_alt(i,s) = VARS(i)* {(1-ETK(i))
+            * [SUM(r,REG,SHRM(i,r,s)*{-theta(i)*psistar(i,r,s)+nne(i,r)})
+            + SHRD(i,s)*{-theta(i)*psistard(i,s)+nne(i,s)}] 
+            + ETK(i)*SUM(t,REG,(SHGO(i,t)*nne(i,t)))};
+
+
+!<  -------------------------------
+ 2.7  Additional welfare decomposition
+   ------------------------------->! 
+
+!The welfare effect is decomposed by adding three additional terms: (1) in
+productivity; (2) number of varieties; (3) separate variety term in utility.
+The three additional terms are identical to the sum of the demand and supply
+shifting terms and the residual part of ams (beyond the impact of itc)!
+
+
+VARIABLE (all,i,COMM)(all,r,REG)(all,s,REG)                NV(i,r,s)
+       # number of bilateral varieties  # ;
+VARIABLE (all,i,COMM)(all,r,REG)                           NVD(i,r)
+       # number of domestic varieties  # ;
+
+
+EQUATION NVEQ  (all,i,COMM)(all,r,REG)(all,s,REG)
+        NV(i,r,s) = - theta(i) * psistar(i,r,s) + VARS(i) * nne(i,r);
+
+EQUATION NVDEQ  (all,i,COMM)(all,r,REG)
+        NVD(i,r) = - theta(i) * psistard(i,r) + VARS(i) * nne(i,r);
+
+
+Variable (linear,change) (all,r,REG)
+    CNT_nvi(r)
+ # cont. to EV of number of imported varieties#;
+Equation CONT_EV_nvi
+(all,r,REG)
+     CNT_nvi(r)    = [0.01 * EVSCALFACT(r)] 
+                   * sum(i,COMM,sum(s,REG,VMSB(i,s,r)
+                   * (1/(AKM_ESUBM(i)-1)) * NV(i,s,r)));
+
+Variable (linear,change) (all,r,REG)
+    CNT_nvd(r)
+ # cont. to EV of number of domestic varieties#;
+Equation CONT_EV_nvd
+(all,r,REG)
+     CNT_nvd(r)  = [0.01 * EVSCALFACT(r)] 
+                 * {sum(i,COMM,[{VDPP(i,r)+VDGP(i,r)
+                 + sum(j,ACTS,VDFP(i,j,r))}*(1/(AKM_ESUBM(i)-1))*NVD(i,r)])};
+
+Variable (linear,change) (all,r,REG)
+    CNT_psii(r)
+ # cont. to EV of importer productivity#;
+Equation CONT_EV_psii
+(all,r,REG)
+     CNT_psii(r)     = [0.01 * EVSCALFACT(r)]
+                     * sum(i,COMM,sum(s,REG,VMSB(i,s,r) * psistar(i,s,r)));
+
+Variable (linear,change) (all,r,REG)
+    CNT_psid(r)
+ # cont. to EV of domestic productivity#;
+Equation CONT_EV_psid
+(all,r,REG)
+     CNT_psid(r)     = [0.01 * EVSCALFACT(r)] 
+                     * {sum(i,COMM,[{VDPP(i,r)+VDGP(i,r)
+                     + sum(j,ACTS,VDFP(i,j,r))}*psistard(i,r)])};
+
+Variable (linear,change) (all,r,REG)
+    CNT_M(r)
+ # cont. to EV of variety term in utility#;
+Equation CONT_EV_M
+(all,r,REG)
+     CNT_M(r)       = [0.01 * EVSCALFACT(r)]
+                    * {sum(i,COMM,{[{VDPP(i,r)+VDGP(i,r)
+                    + sum(j,ACTS,VDFP(i,j,r))}+sum(s,REG,VMSB(i,s,r))]
+                    * ((nu(i)-1)/(AKM_ESUBM(i)-1)) * mh(i,r)})};
+
+Variable (linear,change) (all,r,REG)
+    CNT_tc(r) #contr.to EV of iceberg trade cost reduction#;
+Equation CONT_EV_tc
+(all,r,REG)
+    CNT_tc(r) = - [0.01 * EVSCALFACT(r)]
+                   * sum(i,COMM,sum(s,REG,VMSB(i,s,r) * itc(i,s,r)));   
+
+Variable (linear,change) (all,r,REG)
+    CNTtechr_pure(r) #contr.to EV tech change (no ams)#;
+Equation CONT_EV_techr_pure
+(all,r,REG)
+    CNTtechr_pure(r) 
+        = [0.01 * EVSCALFACT(r)]
+        * [sum(i,ACTS, VOS(i,r) * ao(i,r))
+            + sum(j,ACTS, sum(i,ENDW, VFP(i,j,r) * afe(i,j,r)))
+            + sum(j,ACTS, VVA(j,r) * ava(j,r))
+            + sum(j,ACTS, sum(i,COMM,
+                [VMFP(i,j,r) + VDFP(i,j,r)] * afa(i,j,r)))
+            + sum(m,MARG, sum(i,COMM, sum(s,REG,
+                VTMFSD(m,i,s,r) * atmfsd(m,i,s,r))))];  
+
+Variable (linear,change) (all,r,REG)
+    CNTcgdsr(r) # contribution to regional EV of changes in the price of cgds #;
+Equation CNT_EV_cgdsr
+(all,r,REG)
+    CNTcgdsr(r)
+        = [0.01 * EVSCALFACT(r)]
+        * [NETINV(r) * [pinv(r) - pxwwld] - SAVE(r) * [psave(r) - pxwwld]];
+
+
+Variable (linear,change)(all,r,REG)
+    EV_ALT_partsw(r) # regional EV computed in alternative way from parts #;
+Equation EV_DECOMP_partsw
+# decomposition of Equivalent Variation from parts with N and psi #
+(all,r,REG)
+    EV_ALT_partsw(r) = CNTdpar(r) + sum(t,CTAX,CNTalleffr(r,t)) 
+                     + CNTendwr(r) + CNTtotr(r) 
+                     + CNTtechr_pure(r) + CNTcgdsr(r) + CNT_tc(r) + CNT_psii(r) 
+                     + CNT_psid(r) + CNT_nvi(r) + CNT_nvd(r) + CNT_M(r); 
+
+!Additional indicators for the productivity of the representative firm and 
+product quality!
+Variable (all,i,COMM)(all,s,REG)(all,d,REG) phi(i,s,d)
+ #Productivity of the representative firm#;
+
+Equation E_phi (all,i,COMM)(all,s,REG)(all,d,REG) 
+    phi(i,s,d) = psistar(i,s,d);
+
+Coefficient(parameter) psi
+ #Parameter converting firm's productivity to product quality#;
+Formula(initial) psi = 1;
+Read (ifHeaderExists) psi from file GTAPPARM header "PSI";
+
+Variable (all,i,COMM)(all,s,REG)(all,d,REG) lamda(i,s,d)
+ #Product quality perceived on the demand side#;
+
+Equation E_lamda (all,i,COMM)(all,s,REG)(all,d,REG) 
+    lamda(i,s,d) = psi * phi(i,s,d);
