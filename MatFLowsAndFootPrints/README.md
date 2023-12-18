@@ -2,7 +2,7 @@
 
 # Material flows and footprints
 
-*Modular code for enhancement of trade analysis with simulation models in GAMS or GEMPACK developed by Marijke Kuiper (Wageningen Economic Research)*
+*Modular code for enhancement of trade analysis with simulation models in GAMS or GEMPACK developed by Marijke Kuiper, Thijs de Lange and Willem-Jan van Zeist (Wageningen Economic Research)*
 
 ### **Objective**
 
