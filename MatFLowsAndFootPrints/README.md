@@ -18,7 +18,7 @@ The code has been structured to work with standard GTAP v7 databases. It consist
 
 3.  *MBL_PostSimBalancesAndFootPrints*: check the consistency of material flows, calculation of the Leontief inverse, derivation of footprint estimates based in the direct and indirect flows of commodities
 
-The additions have no impact on model results, variables standard in the GTAP v7 model are used to update the quantity estimates. The current code use GEMPACK to invert the Leontief. For large models this inversion may take excessive time or even fail. R code is being prepared as an alternative for the post-simulation calculations as it is better able to handle inversion of large databases.
+The additions have no impact on model results, variables standard in the GTAP v7 model are used to update the quantity estimates. There are two options for the post-simulation calculations: using GEMPACK or R. For large models an inversion with GEMPACK may take excessive time or even fail. R code is offered as an alternative for the post-simulation calculations as it is better able to handle inversion of large databases.
 
 ### **Documentation & code**
 
