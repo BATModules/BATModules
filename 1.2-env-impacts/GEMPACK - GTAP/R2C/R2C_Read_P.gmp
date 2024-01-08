@@ -1,0 +1,85 @@
+!============================================================================
+  File      : R2C_Read_P.gmp
+  Remarks   : Reading data by scenario and peiod and combine in single header
+ =============================================================================!
+
+!Region Read from updated data files!
+
+! Files!
+File DATA_@S@P # Updated GTAP headers by simulation and period #;
+
+! VFP - Read data  & add to combined coefficient!
+Coefficient (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+  EVFP_@S@P(e,a,r) # expenditure on endowment e by a in r at producer prices #;
+  Read EVFP_@S@P from file DATA_@S@P header "EVFP";
+Coefficient (all,c,COMM)(all,a,ACTS)(all,r,REG)
+  VDFP_@S@P(c,a,r) # expenditure on dom. c by act. a in r at producer prices #;
+  Read VDFP_@S@P from file DATA_@S@P header "VDFP";
+Coefficient (ge 0)(all,c,COMM)(all,a,ACTS)(all,r,REG)
+ VMFP_@S@P(c,a,r) # expenditure on imp. c by act. a in r at producer prices #;
+ Read VMFP_@S@P from file DATA_@S@P header "VMFP";
+Formula (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+ VFP(e,a,r,"@S","@P") = EVFP_@S@P(e,a,r);
+Formula (all,c,COMM)(all,a,ACTS)(all,r,REG)
+ VFP(c,a,r,"@S","@P") = VDFP_@S@P(c,a,r) + VMFP_@S@P(c,a,r);
+
+! VCB - constructed from range of headers!
+Coefficient (all,c,COMM)(all,r,REG)
+ VDPB_@S@P(c,r) # private household expenditure on dom. c in r at basic prices #;
+  Read VDPB_@S@P from file DATA_@S@P header "VDPB";
+Coefficient (all,c,COMM)(all,r,REG)
+ VDGB_@S@P(c,r) # government expenditure on domestic c in r at basic prices #;
+ Read  VDGB_@S@P from file DATA_@S@P header "VDGB";
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+ VDIB_@S@P(c,r) # investment expenditure on domestic c in r at basic prices #;
+Read VDIB_@S@P from file DATA_@S@P header "VDIB"; 
+Coefficient (ge 0)(all,c,COMM)(all,a,ACTS)(all,r,REG)
+ VDFB_@S@P(c,a,r) # expenditure on domestic c by act. a in r at basic prices #;
+ Read VDFB_@S@P from file DATA_@S@P header "VDFB";
+Coefficient (ge 0)(all,c,COMM)(all,s,REG)(all,d,REG) VXSB_@S@P(c,s,d) 
+   # value of exports of  c from s to d at basic prices (tradeables only) #;
+  Read VXSB_@S@P from file  DATA_@S@P header "VXSB";
+Coefficient (ge 0)(all,m,MARG)(all,r,REG)  VST_@S@P(m,r) 
+   # value of exports of margin m from r for int'l transport at basic prices #;
+Read VST_@S@P from file  DATA_@S@P header "VST";
+Formula (all,c,COMM)(all,r,REG)
+  VCB(c,r,"@S","@P") = VDPB_@S@P(c,r) + VDGB_@S@P(c,r) + VDIB_@S@P(c,r) 
+                    + sum{a,ACTS, VDFB_@S@P(c,a,r)}
+             + sum{d,REG, VXSB_@S@P(c,r,d)} + IF[c in MARG, VST_@S@P(c,r)];
+
+!EndRegion!
+
+!Region Read from solution files!
+
+! Files!
+File SOL_@S@P # Solution files by simulation and period (in har format) #;
+
+!pint - Read data!
+Coefficient (all,a,ACTS)(all,r,REG)
+ pint_@S@P(a,r) # Price of composite intermediate input (% change) #;
+ Read pint_@S@P from file SOL_@S@P header "pint";
+Formula (all,a,ACTS)(all,r,REG)
+ pint(a,r,"@S","@P") = pint_@S@P(a,r);
+
+! pfe - Read data!
+Coefficient (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+ pfe_@S@P(e,a,r) 
+ # price of endowment e purchased by activity a region r (% change)#; 
+ Read pfe_@S@P from file SOL_@S@P header "pfe";
+Formula (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+ pfe(e,a,r,"@S","@P") = pfe_@S@P(e,a,r); 
+
+! pds - Read data!
+Coefficient (all,c,COMM)(all,r,REG) 
+  pds_@S@P(c,r) # price of domestically supplied commodity c in region r #;
+  Read pds_@S@P from file SOL_@S@P header "pds";
+Formula (all,c,COMM)(all,r,REG) 
+ pds(c,r,"@S","@P") = pds_@S@P(c,r); 
+
+Coefficient (all,c,COMM)(all,r,REG)
+ qc_@S@P(c,r) # total commodity supply in region r #;
+ Read qc_@S@P from file SOL_@S@P header "qc";
+Formula (all,c,COMM)(all,r,REG) 
+ qc(c,r,"@S","@P") = qc_@S@P(c,r); 
+
+ !EndRegion!

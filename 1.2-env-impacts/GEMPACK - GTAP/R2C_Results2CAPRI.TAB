@@ -1,0 +1,605 @@
+! === Code to connect a GTAP based CGE to CAPRI  ============
+
+Purpose: 
+This program computes shares and variations of GTAP based CGE models 
+that will be used as exogenous variables in CAPRI. 
+
+
+Reference: Code is the GEMPACK translation of a BATModule resulting from 
+work described in Torbjörn Jansson & Houssein Guimbard (2023)" Interaction
+between trade and environmental policy". D1.2. available at
+https://www.batmodel.eu/d1-2-interaction-between-trade-and-environmental-policy/
+
+Use: 
+This code is run after a simulation using the standard GTAP v7 model, computing
+coefficients from solution files. 
+
+Note that coefficient names had to be shortened compared to the GAMS veriosn due
+to GEMPACK
+length constraint. Also note that GTAP v7 has a distinction between activity and
+commodities, allowing for joint production not allowed for in teh GAMS code.
+Cost shares are define by activity while product prices are defined at commodity
+level using appropriate variables from GTAP v7. The GEMPACK code is generalized
+by not hardcoding 2030 as year for results but using a set PER with one
+element and subset of all TIME periods easing a change of the code to other
+years.
+
+Code for reading data from different periods and scenarios is created in Gtree
+using the @ function to generate code. For this to work properly take care that
+the hardcoded set elments of TIME and SCEN match the include statements for @P
+and @S.
+ 
+The code requires for each scenario (see set SIM) and time period (see set
+TIME) the following files/headers:
+- File GTAPSETS # Standard GTAP sets file #;
+- File RESULTS # Output file for use by CAPRI #;
+- File DATA_@S@P: updated datafile by scenario (@S) and period (@P) with
+  coefficients (headers) EVFP, VDFP, VMFP
+- File SOL__@S@P: solution file (converted to har) with by scenario (@S) and
+period (@P) 
+  with variables (headers) pint, pfe, pds
+
+Contact: 
+Marijke Kuiper (Wageningen Economic Research), 2024
+!
+
+! Logical file names (to be linked to speciifc files through a command file !
+!============================================================================
+  File      : R2C_Files.gmp
+  Remarks   : Logical file names to be linked to actual files through a command
+              file. Note that we define scenario & period specific files later
+              to ease addition of new files. Here only static files are read.
+ =============================================================================!
+
+File GTAPSETS # Standard GTAP sets file #;
+
+File (new) RESULTS # Output file for use by CAPRI #;
+
+! Sets & mappings!
+!============================================================================
+  File      : R2C_SetsMappings.gmp
+  Remarks   : Sets and mappings needed to convert data from a GTAP model to 
+              CAPRI. We use common GTAO v7 names in sets
+ =============================================================================!
+
+!Region Standard GTAP sets !
+
+Set REG # Regions #
+   read elements from file GTAPSETS header "REG";                 
+Set ACTS # Activities # 
+    read elements from file GTAPSETS header "ACTS"; 
+Set ENDW # endowments #
+    read elements from file GTAPSETS header "ENDW";
+Set COMM # commodities #
+    read elements from file GTAPSETS header "COMM"; 
+Set DEMD # demanded commodities and endowments # = ENDW + COMM;
+Set MARG # margin commodities #
+    read elements from file GTAPSETS header "MARG";                
+Subset MARG is subset of COMM; 
+
+!EndRegion!
+
+!Region Additional sets for reading data!
+
+! These are hardcoded and not read from file as they need to match the include
+  statements reading data by scenrion and simulation in reading data code!
+Set SIM # Simulation or scenario identifier # (R,S); 
+   !Using R to refer to "RefSTep2" in GAMS code (BAU run), S for "Sim" !
+Set TIME # End-year of simulation period # (P1, P2);
+   ! P2 used to refer to 2030 second step in GAMS code! 
+  
+!EndRegion!
+
+!Region Sets to compute data with right dimensions!
+
+Set BAU # Scenario which serves as the baseline # (R);
+ Subset BAU is subset of SIM;
+Set SCEN # Counterfactual scenario sent to CAPRI # (S);
+ Subset SCEN is subset of SIM;
+Set PER # Period for which data are shared # (P2);
+ Subset PER is subset of TIME;
+Set STRT # Start of period for which data are shared # (P1);
+ Subset STRT is subset of TIME;
+
+Set CHSR # Items in the cost share calculation  # = ENDW + "CNTER";
+
+!EndRegion!
+
+! Read data from solution files!
+!============================================================================
+  File      : R2C_ReadData.gmp
+  Remarks   : Read data from a GTAP-based model needed to create the link to 
+              CAPRI and combine in single coefficient
+ =============================================================================!
+
+!Region Coefficients combining data from scenarios and periods !
+
+! from updated data (levels)!
+Coefficient (all,d,DEMD)(all,a,ACTS)(all,r,REG)(all,s,SIM)(all,t,TIME)
+  VFP(d,a,r,s,t) # expenditure on d by act. a in r valued at producer prices #;
+  Formula (all,d,DEMD)(all,a,ACTS)(all,r,REG)(all,s,SIM)(all,t,TIME)
+  VFP(d,a,r,s,t)  = 0;
+Coefficient (all,c,COMM)(all,r,REG)(all,s,SIM)(all,t,TIME) 
+    VCB(c,r,s,t) # supply of commodity c in region r valued at basic prices #;  
+
+! from solution file (% change)!
+Coefficient (all,a,ACTS)(all,r,REG)(all,s,SIM)(all,t,TIME) 
+ pint(a,r,s,t) 
+ # Price of composite intermediate input c by activity a in r (% change)#;
+Coefficient (all,e,ENDW)(all,a,ACTS)(all,r,REG)(all,s,SIM)(all,t,TIME) 
+ pfe(e,a,r,s,t) 
+ # price of endowment e purchased by activity a region r (% change)#;
+Coefficient(all,c,COMM)(all,r,REG)(all,s,SIM)(all,t,TIME) 
+ pds(c,r,s,t) # price of domestically supplied commodity c in region r #; 
+Coefficient (all,c,COMM)(all,r,REG)(all,s,SIM)(all,t,TIME) 
+ qc(c,r,s,t) # Change total commodity supply in region r (%) #; 
+
+
+! First layer to get simulations read - in between {} needs to match elements
+  in SIM set!
+! Now using R for reference or BAU and S for counterfactual scenario!
+!============================================================================
+  File      : R2C_Read_S.gmp
+  Remarks   : including periode by scenario file
+ =============================================================================!
+
+! Second layer to get simulations read - in between {} needs to match TIME set!
+! Now using P1 to refer to 2030 period in GAMS code !
+!============================================================================
+  File      : R2C_Read_P.gmp
+  Remarks   : Reading data by scenario and peiod and combine in single header
+ =============================================================================!
+
+!Region Read from updated data files!
+
+! Files!
+File DATA_RP1 # Updated GTAP headers by simulation and period #;
+
+! VFP - Read data  & add to combined coefficient!
+Coefficient (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+  EVFP_RP1(e,a,r) # expenditure on endowment e by a in r at producer prices #;
+  Read EVFP_RP1 from file DATA_RP1 header "EVFP";
+Coefficient (all,c,COMM)(all,a,ACTS)(all,r,REG)
+  VDFP_RP1(c,a,r) # expenditure on dom. c by act. a in r at producer prices #;
+  Read VDFP_RP1 from file DATA_RP1 header "VDFP";
+Coefficient (ge 0)(all,c,COMM)(all,a,ACTS)(all,r,REG)
+ VMFP_RP1(c,a,r) # expenditure on imp. c by act. a in r at producer prices #;
+ Read VMFP_RP1 from file DATA_RP1 header "VMFP";
+Formula (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+ VFP(e,a,r,"R","P1") = EVFP_RP1(e,a,r);
+Formula (all,c,COMM)(all,a,ACTS)(all,r,REG)
+ VFP(c,a,r,"R","P1") = VDFP_RP1(c,a,r) + VMFP_RP1(c,a,r);
+
+! VCB - constructed from range of headers!
+Coefficient (all,c,COMM)(all,r,REG)
+ VDPB_RP1(c,r) # private household expenditure on dom. c in r at basic prices #;
+  Read VDPB_RP1 from file DATA_RP1 header "VDPB";
+Coefficient (all,c,COMM)(all,r,REG)
+ VDGB_RP1(c,r) # government expenditure on domestic c in r at basic prices #;
+ Read  VDGB_RP1 from file DATA_RP1 header "VDGB";
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+ VDIB_RP1(c,r) # investment expenditure on domestic c in r at basic prices #;
+Read VDIB_RP1 from file DATA_RP1 header "VDIB"; 
+Coefficient (ge 0)(all,c,COMM)(all,a,ACTS)(all,r,REG)
+ VDFB_RP1(c,a,r) # expenditure on domestic c by act. a in r at basic prices #;
+ Read VDFB_RP1 from file DATA_RP1 header "VDFB";
+Coefficient (ge 0)(all,c,COMM)(all,s,REG)(all,d,REG) VXSB_RP1(c,s,d) 
+   # value of exports of  c from s to d at basic prices (tradeables only) #;
+  Read VXSB_RP1 from file  DATA_RP1 header "VXSB";
+Coefficient (ge 0)(all,m,MARG)(all,r,REG)  VST_RP1(m,r) 
+   # value of exports of margin m from r for int'l transport at basic prices #;
+Read VST_RP1 from file  DATA_RP1 header "VST";
+Formula (all,c,COMM)(all,r,REG)
+  VCB(c,r,"R","P1") = VDPB_RP1(c,r) + VDGB_RP1(c,r) + VDIB_RP1(c,r) 
+                    + sum{a,ACTS, VDFB_RP1(c,a,r)}
+             + sum{d,REG, VXSB_RP1(c,r,d)} + IF[c in MARG, VST_RP1(c,r)];
+
+!EndRegion!
+
+!Region Read from solution files!
+
+! Files!
+File SOL_RP1 # Solution files by simulation and period (in har format) #;
+
+!pint - Read data!
+Coefficient (all,a,ACTS)(all,r,REG)
+ pint_RP1(a,r) # Price of composite intermediate input (% change) #;
+ Read pint_RP1 from file SOL_RP1 header "pint";
+Formula (all,a,ACTS)(all,r,REG)
+ pint(a,r,"R","P1") = pint_RP1(a,r);
+
+! pfe - Read data!
+Coefficient (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+ pfe_RP1(e,a,r) 
+ # price of endowment e purchased by activity a region r (% change)#; 
+ Read pfe_RP1 from file SOL_RP1 header "pfe";
+Formula (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+ pfe(e,a,r,"R","P1") = pfe_RP1(e,a,r); 
+
+! pds - Read data!
+Coefficient (all,c,COMM)(all,r,REG) 
+  pds_RP1(c,r) # price of domestically supplied commodity c in region r #;
+  Read pds_RP1 from file SOL_RP1 header "pds";
+Formula (all,c,COMM)(all,r,REG) 
+ pds(c,r,"R","P1") = pds_RP1(c,r); 
+
+Coefficient (all,c,COMM)(all,r,REG)
+ qc_RP1(c,r) # total commodity supply in region r #;
+ Read qc_RP1 from file SOL_RP1 header "qc";
+Formula (all,c,COMM)(all,r,REG) 
+ qc(c,r,"R","P1") = qc_RP1(c,r); 
+
+ !EndRegion!
+
+
+!============================================================================
+  File      : R2C_Read_P.gmp
+  Remarks   : Reading data by scenario and peiod and combine in single header
+ =============================================================================!
+
+!Region Read from updated data files!
+
+! Files!
+File DATA_RP2 # Updated GTAP headers by simulation and period #;
+
+! VFP - Read data  & add to combined coefficient!
+Coefficient (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+  EVFP_RP2(e,a,r) # expenditure on endowment e by a in r at producer prices #;
+  Read EVFP_RP2 from file DATA_RP2 header "EVFP";
+Coefficient (all,c,COMM)(all,a,ACTS)(all,r,REG)
+  VDFP_RP2(c,a,r) # expenditure on dom. c by act. a in r at producer prices #;
+  Read VDFP_RP2 from file DATA_RP2 header "VDFP";
+Coefficient (ge 0)(all,c,COMM)(all,a,ACTS)(all,r,REG)
+ VMFP_RP2(c,a,r) # expenditure on imp. c by act. a in r at producer prices #;
+ Read VMFP_RP2 from file DATA_RP2 header "VMFP";
+Formula (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+ VFP(e,a,r,"R","P2") = EVFP_RP2(e,a,r);
+Formula (all,c,COMM)(all,a,ACTS)(all,r,REG)
+ VFP(c,a,r,"R","P2") = VDFP_RP2(c,a,r) + VMFP_RP2(c,a,r);
+
+! VCB - constructed from range of headers!
+Coefficient (all,c,COMM)(all,r,REG)
+ VDPB_RP2(c,r) # private household expenditure on dom. c in r at basic prices #;
+  Read VDPB_RP2 from file DATA_RP2 header "VDPB";
+Coefficient (all,c,COMM)(all,r,REG)
+ VDGB_RP2(c,r) # government expenditure on domestic c in r at basic prices #;
+ Read  VDGB_RP2 from file DATA_RP2 header "VDGB";
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+ VDIB_RP2(c,r) # investment expenditure on domestic c in r at basic prices #;
+Read VDIB_RP2 from file DATA_RP2 header "VDIB"; 
+Coefficient (ge 0)(all,c,COMM)(all,a,ACTS)(all,r,REG)
+ VDFB_RP2(c,a,r) # expenditure on domestic c by act. a in r at basic prices #;
+ Read VDFB_RP2 from file DATA_RP2 header "VDFB";
+Coefficient (ge 0)(all,c,COMM)(all,s,REG)(all,d,REG) VXSB_RP2(c,s,d) 
+   # value of exports of  c from s to d at basic prices (tradeables only) #;
+  Read VXSB_RP2 from file  DATA_RP2 header "VXSB";
+Coefficient (ge 0)(all,m,MARG)(all,r,REG)  VST_RP2(m,r) 
+   # value of exports of margin m from r for int'l transport at basic prices #;
+Read VST_RP2 from file  DATA_RP2 header "VST";
+Formula (all,c,COMM)(all,r,REG)
+  VCB(c,r,"R","P2") = VDPB_RP2(c,r) + VDGB_RP2(c,r) + VDIB_RP2(c,r) 
+                    + sum{a,ACTS, VDFB_RP2(c,a,r)}
+             + sum{d,REG, VXSB_RP2(c,r,d)} + IF[c in MARG, VST_RP2(c,r)];
+
+!EndRegion!
+
+!Region Read from solution files!
+
+! Files!
+File SOL_RP2 # Solution files by simulation and period (in har format) #;
+
+!pint - Read data!
+Coefficient (all,a,ACTS)(all,r,REG)
+ pint_RP2(a,r) # Price of composite intermediate input (% change) #;
+ Read pint_RP2 from file SOL_RP2 header "pint";
+Formula (all,a,ACTS)(all,r,REG)
+ pint(a,r,"R","P2") = pint_RP2(a,r);
+
+! pfe - Read data!
+Coefficient (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+ pfe_RP2(e,a,r) 
+ # price of endowment e purchased by activity a region r (% change)#; 
+ Read pfe_RP2 from file SOL_RP2 header "pfe";
+Formula (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+ pfe(e,a,r,"R","P2") = pfe_RP2(e,a,r); 
+
+! pds - Read data!
+Coefficient (all,c,COMM)(all,r,REG) 
+  pds_RP2(c,r) # price of domestically supplied commodity c in region r #;
+  Read pds_RP2 from file SOL_RP2 header "pds";
+Formula (all,c,COMM)(all,r,REG) 
+ pds(c,r,"R","P2") = pds_RP2(c,r); 
+
+Coefficient (all,c,COMM)(all,r,REG)
+ qc_RP2(c,r) # total commodity supply in region r #;
+ Read qc_RP2 from file SOL_RP2 header "qc";
+Formula (all,c,COMM)(all,r,REG) 
+ qc(c,r,"R","P2") = qc_RP2(c,r); 
+
+ !EndRegion!
+
+
+
+
+!============================================================================
+  File      : R2C_Read_S.gmp
+  Remarks   : including periode by scenario file
+ =============================================================================!
+
+! Second layer to get simulations read - in between {} needs to match TIME set!
+! Now using P1 to refer to 2030 period in GAMS code !
+!============================================================================
+  File      : R2C_Read_P.gmp
+  Remarks   : Reading data by scenario and peiod and combine in single header
+ =============================================================================!
+
+!Region Read from updated data files!
+
+! Files!
+File DATA_SP1 # Updated GTAP headers by simulation and period #;
+
+! VFP - Read data  & add to combined coefficient!
+Coefficient (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+  EVFP_SP1(e,a,r) # expenditure on endowment e by a in r at producer prices #;
+  Read EVFP_SP1 from file DATA_SP1 header "EVFP";
+Coefficient (all,c,COMM)(all,a,ACTS)(all,r,REG)
+  VDFP_SP1(c,a,r) # expenditure on dom. c by act. a in r at producer prices #;
+  Read VDFP_SP1 from file DATA_SP1 header "VDFP";
+Coefficient (ge 0)(all,c,COMM)(all,a,ACTS)(all,r,REG)
+ VMFP_SP1(c,a,r) # expenditure on imp. c by act. a in r at producer prices #;
+ Read VMFP_SP1 from file DATA_SP1 header "VMFP";
+Formula (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+ VFP(e,a,r,"S","P1") = EVFP_SP1(e,a,r);
+Formula (all,c,COMM)(all,a,ACTS)(all,r,REG)
+ VFP(c,a,r,"S","P1") = VDFP_SP1(c,a,r) + VMFP_SP1(c,a,r);
+
+! VCB - constructed from range of headers!
+Coefficient (all,c,COMM)(all,r,REG)
+ VDPB_SP1(c,r) # private household expenditure on dom. c in r at basic prices #;
+  Read VDPB_SP1 from file DATA_SP1 header "VDPB";
+Coefficient (all,c,COMM)(all,r,REG)
+ VDGB_SP1(c,r) # government expenditure on domestic c in r at basic prices #;
+ Read  VDGB_SP1 from file DATA_SP1 header "VDGB";
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+ VDIB_SP1(c,r) # investment expenditure on domestic c in r at basic prices #;
+Read VDIB_SP1 from file DATA_SP1 header "VDIB"; 
+Coefficient (ge 0)(all,c,COMM)(all,a,ACTS)(all,r,REG)
+ VDFB_SP1(c,a,r) # expenditure on domestic c by act. a in r at basic prices #;
+ Read VDFB_SP1 from file DATA_SP1 header "VDFB";
+Coefficient (ge 0)(all,c,COMM)(all,s,REG)(all,d,REG) VXSB_SP1(c,s,d) 
+   # value of exports of  c from s to d at basic prices (tradeables only) #;
+  Read VXSB_SP1 from file  DATA_SP1 header "VXSB";
+Coefficient (ge 0)(all,m,MARG)(all,r,REG)  VST_SP1(m,r) 
+   # value of exports of margin m from r for int'l transport at basic prices #;
+Read VST_SP1 from file  DATA_SP1 header "VST";
+Formula (all,c,COMM)(all,r,REG)
+  VCB(c,r,"S","P1") = VDPB_SP1(c,r) + VDGB_SP1(c,r) + VDIB_SP1(c,r) 
+                    + sum{a,ACTS, VDFB_SP1(c,a,r)}
+             + sum{d,REG, VXSB_SP1(c,r,d)} + IF[c in MARG, VST_SP1(c,r)];
+
+!EndRegion!
+
+!Region Read from solution files!
+
+! Files!
+File SOL_SP1 # Solution files by simulation and period (in har format) #;
+
+!pint - Read data!
+Coefficient (all,a,ACTS)(all,r,REG)
+ pint_SP1(a,r) # Price of composite intermediate input (% change) #;
+ Read pint_SP1 from file SOL_SP1 header "pint";
+Formula (all,a,ACTS)(all,r,REG)
+ pint(a,r,"S","P1") = pint_SP1(a,r);
+
+! pfe - Read data!
+Coefficient (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+ pfe_SP1(e,a,r) 
+ # price of endowment e purchased by activity a region r (% change)#; 
+ Read pfe_SP1 from file SOL_SP1 header "pfe";
+Formula (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+ pfe(e,a,r,"S","P1") = pfe_SP1(e,a,r); 
+
+! pds - Read data!
+Coefficient (all,c,COMM)(all,r,REG) 
+  pds_SP1(c,r) # price of domestically supplied commodity c in region r #;
+  Read pds_SP1 from file SOL_SP1 header "pds";
+Formula (all,c,COMM)(all,r,REG) 
+ pds(c,r,"S","P1") = pds_SP1(c,r); 
+
+Coefficient (all,c,COMM)(all,r,REG)
+ qc_SP1(c,r) # total commodity supply in region r #;
+ Read qc_SP1 from file SOL_SP1 header "qc";
+Formula (all,c,COMM)(all,r,REG) 
+ qc(c,r,"S","P1") = qc_SP1(c,r); 
+
+ !EndRegion!
+
+
+!============================================================================
+  File      : R2C_Read_P.gmp
+  Remarks   : Reading data by scenario and peiod and combine in single header
+ =============================================================================!
+
+!Region Read from updated data files!
+
+! Files!
+File DATA_SP2 # Updated GTAP headers by simulation and period #;
+
+! VFP - Read data  & add to combined coefficient!
+Coefficient (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+  EVFP_SP2(e,a,r) # expenditure on endowment e by a in r at producer prices #;
+  Read EVFP_SP2 from file DATA_SP2 header "EVFP";
+Coefficient (all,c,COMM)(all,a,ACTS)(all,r,REG)
+  VDFP_SP2(c,a,r) # expenditure on dom. c by act. a in r at producer prices #;
+  Read VDFP_SP2 from file DATA_SP2 header "VDFP";
+Coefficient (ge 0)(all,c,COMM)(all,a,ACTS)(all,r,REG)
+ VMFP_SP2(c,a,r) # expenditure on imp. c by act. a in r at producer prices #;
+ Read VMFP_SP2 from file DATA_SP2 header "VMFP";
+Formula (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+ VFP(e,a,r,"S","P2") = EVFP_SP2(e,a,r);
+Formula (all,c,COMM)(all,a,ACTS)(all,r,REG)
+ VFP(c,a,r,"S","P2") = VDFP_SP2(c,a,r) + VMFP_SP2(c,a,r);
+
+! VCB - constructed from range of headers!
+Coefficient (all,c,COMM)(all,r,REG)
+ VDPB_SP2(c,r) # private household expenditure on dom. c in r at basic prices #;
+  Read VDPB_SP2 from file DATA_SP2 header "VDPB";
+Coefficient (all,c,COMM)(all,r,REG)
+ VDGB_SP2(c,r) # government expenditure on domestic c in r at basic prices #;
+ Read  VDGB_SP2 from file DATA_SP2 header "VDGB";
+Coefficient (ge 0)(all,c,COMM)(all,r,REG)
+ VDIB_SP2(c,r) # investment expenditure on domestic c in r at basic prices #;
+Read VDIB_SP2 from file DATA_SP2 header "VDIB"; 
+Coefficient (ge 0)(all,c,COMM)(all,a,ACTS)(all,r,REG)
+ VDFB_SP2(c,a,r) # expenditure on domestic c by act. a in r at basic prices #;
+ Read VDFB_SP2 from file DATA_SP2 header "VDFB";
+Coefficient (ge 0)(all,c,COMM)(all,s,REG)(all,d,REG) VXSB_SP2(c,s,d) 
+   # value of exports of  c from s to d at basic prices (tradeables only) #;
+  Read VXSB_SP2 from file  DATA_SP2 header "VXSB";
+Coefficient (ge 0)(all,m,MARG)(all,r,REG)  VST_SP2(m,r) 
+   # value of exports of margin m from r for int'l transport at basic prices #;
+Read VST_SP2 from file  DATA_SP2 header "VST";
+Formula (all,c,COMM)(all,r,REG)
+  VCB(c,r,"S","P2") = VDPB_SP2(c,r) + VDGB_SP2(c,r) + VDIB_SP2(c,r) 
+                    + sum{a,ACTS, VDFB_SP2(c,a,r)}
+             + sum{d,REG, VXSB_SP2(c,r,d)} + IF[c in MARG, VST_SP2(c,r)];
+
+!EndRegion!
+
+!Region Read from solution files!
+
+! Files!
+File SOL_SP2 # Solution files by simulation and period (in har format) #;
+
+!pint - Read data!
+Coefficient (all,a,ACTS)(all,r,REG)
+ pint_SP2(a,r) # Price of composite intermediate input (% change) #;
+ Read pint_SP2 from file SOL_SP2 header "pint";
+Formula (all,a,ACTS)(all,r,REG)
+ pint(a,r,"S","P2") = pint_SP2(a,r);
+
+! pfe - Read data!
+Coefficient (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+ pfe_SP2(e,a,r) 
+ # price of endowment e purchased by activity a region r (% change)#; 
+ Read pfe_SP2 from file SOL_SP2 header "pfe";
+Formula (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+ pfe(e,a,r,"S","P2") = pfe_SP2(e,a,r); 
+
+! pds - Read data!
+Coefficient (all,c,COMM)(all,r,REG) 
+  pds_SP2(c,r) # price of domestically supplied commodity c in region r #;
+  Read pds_SP2 from file SOL_SP2 header "pds";
+Formula (all,c,COMM)(all,r,REG) 
+ pds(c,r,"S","P2") = pds_SP2(c,r); 
+
+Coefficient (all,c,COMM)(all,r,REG)
+ qc_SP2(c,r) # total commodity supply in region r #;
+ Read qc_SP2 from file SOL_SP2 header "qc";
+Formula (all,c,COMM)(all,r,REG) 
+ qc(c,r,"S","P2") = qc_SP2(c,r); 
+
+ !EndRegion!
+
+
+
+
+
+
+! Derive coefficients in format that CAPRI can read!
+!============================================================================
+  File      : R2C_DeriveCoefficients.gmp
+  Remarks   : Derive coefficients from GTAP based model that can be used in 
+              CAPRI
+ =============================================================================!
+
+Coefficient (all,d,DEMD)(all,a,ACTS)(all,r,REG)(all,s,SIM)(all,t,TIME)
+ CostShare(d,a,r,s,t) # Costs shares of inputs by scenario and period #;
+ Formula(all,d,DEMD)(all,a,ACTS)(all,r,REG)(all,s,SIM)(all,t,TIME)
+ CostShare(d,a,r,s,t) = VFP(d,a,r,s,t) / sum{dd,DEMD, VFP(dd,a,r,s,t)};
+
+Coefficient (all,i,CHSR)(all,a,ACTS)(all,r,REG)
+ Shr_Baseline(i,a,r) # Share of factors (and intermediates) in baseline #;
+ Formula (all,i,CHSR)(all,a,ACTS)(all,r,REG)
+ Shr_Baseline(i,a,r) = 0;
+ Formula (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+ Shr_Baseline(e,a,r) =  sum{t,PER, sum{s,BAU, CostShare(e,a,r,s,t)}};
+ Formula (all,a,ACTS)(all,r,REG)
+ Shr_Baseline("CNTER",a,r) = sum{t,PER, sum{s,BAU, 
+                               sum{i,COMM,CostShare(i,a,r,s,t)}}};
+
+Coefficient (all,i,CHSR)(all,a,ACTS)(all,r,REG)
+ Price_Change(i,a,r) 
+ # Difference price change counterfactual scenario wrt BAU price change # ;
+ ! Price_Changes in GAMS code!
+ Formula (all,i,CHSR)(all,a,ACTS)(all,r,REG)
+ Price_Change(i,a,r) = 0;
+ Formula (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+ Price_Change(e,a,r) = 
+    [sum{t,PER, sum{s,SCEN, pfe(e,a,r,s,t)}} 
+   - sum{t,PER, sum{s,BAU,pfe(e,a,r,s,t)}}]
+   / 100 + sum{t,PER, sum{s,BAU, pfe(e,a,r,s,t)}};
+ Formula (all,a,ACTS)(all,r,REG)
+ Price_Change("CNTER",a,r) = 
+     [ sum{t,PER, sum{s,SCEN, pint(a,r,s,t)}} 
+     - sum{t,PER, sum{s,BAU, pint(a,r,s,t)}}]
+    / 100 + sum{t,PER, sum{s,BAU, pint(a,r,s,t)}};
+
+Coefficient (all,c,COMM)(all,r,REG)
+  Price_Prodcr(c,r) 
+# Difference output price change counterfactual scenario wrt BAU price change#;
+! Price_Producer_Change in GAMS code!
+Formula (all,c,COMM)(all,r,REG)
+  Price_Prodcr(c,r) = 
+   [sum{t,PER, sum{s,SCEN, pds(c,r,s,t)}} 
+   - sum{t,PER, sum{s,BAU, pds(c,r,s,t)}}]
+   / 100 + sum{t,PER, sum{s,BAU, pds(c,r,s,t)}};
+
+Coefficient (all,c,COMM)(all,r,REG)
+  Prod_Vol_Ch(c,r)
+# Difference ouput volume counterfactual scenario wrt BAU volume change # ;  
+! Prod_Volume_Changes in GAMS code!
+Formula (all,c,COMM)(all,r,REG)
+  Prod_Vol_Ch(c,r) = 
+   [sum{t,PER, sum{s,SCEN, qc(c,r,s,t)}} 
+   - sum{t,PER, sum{s,BAU, qc(c,r,s,t)}}]
+   / 100 + sum{t,PER, sum{s,BAU, qc(c,r,s,t)}};
+
+Coefficient (all,c,COMM)(all,r,REG)
+  Prod_Volume( c,r)
+  # Production volume in counterfactual scenario # ;
+  Formula (all,c,COMM)(all,r,REG)
+  Prod_Volume( c,r) = sum{t,STRT, sum{s,SCEN, VCB(c,r,s,t)}} 
+    * (1 + [sum{t,PER, sum{s,SCEN, qc(c,r,s,t)}}/100]);
+! qc is intiliazed at VCB so use the start value VCB adjusted by the % change
+during the scenrio (qc) to derive the production level at end of simulation !
+
+
+! Write results to file!
+!============================================================================
+  File      : R2C_WriteCoefficients.gmp
+  Remarks   : Write results to file. Likely need conversion to GDX for 
+              use in CAPRI (can be done in ViewHar or via har2GDX).
+ =============================================================================!
+
+! Transfer aggregation from GTAP to model aggregation !
+!  - Disaggregated GTAP sets of regions, commodities and endowments !
+Transfer "H1" from file GTAPSETS to file RESULTS; !DREG!
+Transfer "H2" from file GTAPSETS to file RESULTS; !DCOMM!
+Transfer "H3" from file GTAPSETS to file RESULTS; !DACTS!
+Transfer "H6" from file GTAPSETS to file RESULTS; !DENDW!
+! - Mappings from GTAP to model sets!
+Transfer "MAPR" from file GTAPSETS to file RESULTS; !Regional aggregation!
+Transfer "MAPT" from file GTAPSETS to file RESULTS; !Commodity aggregation!
+Transfer "MAPS" from file GTAPSETS to file RESULTS; !Activity (sector)
+aggregation!
+Transfer "MAPF" from file GTAPSETS to file RESULTS; !Endowment aggregation!
+
+Write Shr_Baseline to file RESULTS header "SBAU";
+Write Price_Change to file RESULTS header "P_I";
+Write Price_Prodcr to file RESULTS header "P_P";
+Write Prod_Vol_Ch to file RESULTS header "PVCH";
+Write Prod_Volume to file RESULTS header "QPRD";
+
+
+

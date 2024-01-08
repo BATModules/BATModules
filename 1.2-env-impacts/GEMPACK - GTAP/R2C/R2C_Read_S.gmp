@@ -1,0 +1,8 @@
+!============================================================================
+  File      : R2C_Read_S.gmp
+  Remarks   : including periode by scenario file
+ =============================================================================!
+
+! Second layer to get simulations read - in between {} needs to match TIME set!
+! Now using P1 to refer to 2030 period in GAMS code !
+!$include  R2C\R2C_Read_P.gmp--P={P1,P2}!

@@ -1,0 +1,10 @@
+!============================================================================
+  File      : R2C_Files.gmp
+  Remarks   : Logical file names to be linked to actual files through a command
+              file. Note that we define scenario & period specific files later
+              to ease addition of new files. Here only static files are read.
+ =============================================================================!
+
+File GTAPSETS # Standard GTAP sets file #;
+
+File (new) RESULTS # Output file for use by CAPRI #;

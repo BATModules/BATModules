@@ -1,0 +1,48 @@
+!============================================================================
+  File      : R2C_SetsMappings.gmp
+  Remarks   : Sets and mappings needed to convert data from a GTAP model to 
+              CAPRI. We use common GTAO v7 names in sets
+ =============================================================================!
+
+!Region Standard GTAP sets !
+
+Set REG # Regions #
+   read elements from file GTAPSETS header "REG";                 
+Set ACTS # Activities # 
+    read elements from file GTAPSETS header "ACTS"; 
+Set ENDW # endowments #
+    read elements from file GTAPSETS header "ENDW";
+Set COMM # commodities #
+    read elements from file GTAPSETS header "COMM"; 
+Set DEMD # demanded commodities and endowments # = ENDW + COMM;
+Set MARG # margin commodities #
+    read elements from file GTAPSETS header "MARG";                
+Subset MARG is subset of COMM; 
+
+!EndRegion!
+
+!Region Additional sets for reading data!
+
+! These are hardcoded and not read from file as they need to match the include
+  statements reading data by scenrion and simulation in reading data code!
+Set SIM # Simulation or scenario identifier # (R,S); 
+   !Using R to refer to "RefSTep2" in GAMS code (BAU run), S for "Sim" !
+Set TIME # End-year of simulation period # (P1, P2);
+   ! P2 used to refer to 2030 second step in GAMS code! 
+  
+!EndRegion!
+
+!Region Sets to compute data with right dimensions!
+
+Set BAU # Scenario which serves as the baseline # (R);
+ Subset BAU is subset of SIM;
+Set SCEN # Counterfactual scenario sent to CAPRI # (S);
+ Subset SCEN is subset of SIM;
+Set PER # Period for which data are shared # (P2);
+ Subset PER is subset of TIME;
+Set STRT # Start of period for which data are shared # (P1);
+ Subset STRT is subset of TIME;
+
+Set CHSR # Items in the cost share calculation  # = ENDW + "CNTER";
+
+!EndRegion!

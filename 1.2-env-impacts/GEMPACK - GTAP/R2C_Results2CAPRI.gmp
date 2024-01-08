@@ -1,0 +1,68 @@
+! === Code to connect a GTAP based CGE to CAPRI  ============
+
+Purpose: 
+This program computes shares and variations of GTAP based CGE models 
+that will be used as exogenous variables in CAPRI. 
+
+
+Reference: Code is the GEMPACK translation of a BATModule resulting from 
+work described in Torbjörn Jansson & Houssein Guimbard (2023)" Interaction
+between trade and environmental policy". D1.2. available at
+https://www.batmodel.eu/d1-2-interaction-between-trade-and-environmental-policy/
+
+Use: 
+This code is run after a simulation using the standard GTAP v7 model, computing
+coefficients from solution files. 
+
+Note that coefficient names had to be shortened compared to the GAMS veriosn due to GEMPACK
+length constraint. Also note that GTAP v7 has a distinction between activity and
+commodities, allowing for joint production not allowed for in teh GAMS code.
+Cost shares are define by activity while product prices are defined at commodity
+level using appropriate variables from GTAP v7. The GEMPACK code is generalized
+by not hardcoding 2030 as year for results but using a set PER with one
+element and subset of all TIME periods easing a change of the code to other
+years.
+
+Code for reading data from different periods and scenarios is created in Gtree
+using the @ function to generate code. For this to work properly take care that
+the hardcoded set elments of TIME and SCEN match the include statements for @P
+and @S.
+ 
+The code requires for each scenario (see set SIM) and time period (see set
+TIME) the following files/headers:
+- File GTAPSETS # Standard GTAP sets file #;
+- File RESULTS # Output file for use by CAPRI #;
+- File DATA_@S@P: updated datafile by scenario (@S) and period (@P) with
+  coefficients (headers) EVFP, VDFP, VMFP
+- File SOL__@S@P: solution file (converted to har) with by scenario (@S) and period (@P) 
+  with variables (headers) pint, pfe, pds
+
+Contact: 
+Marijke Kuiper (Wageningen Economic Research), 2024
+!
+
+! Logical file names (to be linked to speciifc files through a command file !
+!$include  R2C\R2C_Files.gmp!
+
+! Sets & mappings!
+!$include  R2C\R2C_SetsMappings.gmp!
+
+! Read data from solution files!
+!$include  R2C\R2C_ReadData.gmp!
+
+! Derive coefficients in format that CAPRI can read!
+!$include  R2C\R2C_DeriveCoefficients.gmp!
+
+! Write results to file!
+!$include  R2C\R2C_WriteCoefficients.gmp!
+
+
+
+![[! GAMS code MIRAGE
+
+
+
+
+!]]!
+
+

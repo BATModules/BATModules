@@ -1,0 +1,24 @@
+!============================================================================
+  File      : R2C_WriteCoefficients.gmp
+  Remarks   : Write results to file. Likely need conversion to GDX for 
+              use in CAPRI (can be done in ViewHar or via har2GDX).
+ =============================================================================!
+
+! Transfer aggregation from GTAP to model aggregation !
+!  - Disaggregated GTAP sets of regions, commodities and endowments !
+Transfer "H1" from file GTAPSETS to file RESULTS; !DREG!
+Transfer "H2" from file GTAPSETS to file RESULTS; !DCOMM!
+Transfer "H3" from file GTAPSETS to file RESULTS; !DACTS!
+Transfer "H6" from file GTAPSETS to file RESULTS; !DENDW!
+! - Mappings from GTAP to model sets!
+Transfer "MAPR" from file GTAPSETS to file RESULTS; !Regional aggregation!
+Transfer "MAPT" from file GTAPSETS to file RESULTS; !Commodity aggregation!
+Transfer "MAPS" from file GTAPSETS to file RESULTS; !Activity (sector) aggregation!
+Transfer "MAPF" from file GTAPSETS to file RESULTS; !Endowment aggregation!
+
+Write Shr_Baseline to file RESULTS header "SBAU";
+Write Price_Change to file RESULTS header "P_I";
+Write Price_Prodcr to file RESULTS header "P_P";
+Write Prod_Vol_Ch to file RESULTS header "PVCH";
+Write Prod_Volume to file RESULTS header "QPRD";
+

@@ -1,0 +1,66 @@
+!============================================================================
+  File      : R2C_DeriveCoefficients.gmp
+  Remarks   : Derive coefficients from GTAP based model that can be used in 
+              CAPRI
+ =============================================================================!
+
+Coefficient (all,d,DEMD)(all,a,ACTS)(all,r,REG)(all,s,SIM)(all,t,TIME)
+ CostShare(d,a,r,s,t) # Costs shares of inputs by scenario and period #;
+ Formula(all,d,DEMD)(all,a,ACTS)(all,r,REG)(all,s,SIM)(all,t,TIME)
+ CostShare(d,a,r,s,t) = VFP(d,a,r,s,t) / sum{dd,DEMD, VFP(dd,a,r,s,t)};
+
+Coefficient (all,i,CHSR)(all,a,ACTS)(all,r,REG)
+ Shr_Baseline(i,a,r) # Share of factors (and intermediates) in baseline #;
+ Formula (all,i,CHSR)(all,a,ACTS)(all,r,REG)
+ Shr_Baseline(i,a,r) = 0;
+ Formula (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+ Shr_Baseline(e,a,r) =  sum{t,PER, sum{s,BAU, CostShare(e,a,r,s,t)}};
+ Formula (all,a,ACTS)(all,r,REG)
+ Shr_Baseline("CNTER",a,r) = sum{t,PER, sum{s,BAU, 
+                               sum{i,COMM,CostShare(i,a,r,s,t)}}};
+
+Coefficient (all,i,CHSR)(all,a,ACTS)(all,r,REG)
+ Price_Change(i,a,r) 
+ # Difference price change counterfactual scenario wrt BAU price change # ;
+ ! Price_Changes in GAMS code!
+ Formula (all,i,CHSR)(all,a,ACTS)(all,r,REG)
+ Price_Change(i,a,r) = 0;
+ Formula (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+ Price_Change(e,a,r) = 
+    [sum{t,PER, sum{s,SCEN, pfe(e,a,r,s,t)}} 
+   - sum{t,PER, sum{s,BAU,pfe(e,a,r,s,t)}}]
+   / 100 + sum{t,PER, sum{s,BAU, pfe(e,a,r,s,t)}};
+ Formula (all,a,ACTS)(all,r,REG)
+ Price_Change("CNTER",a,r) = 
+     [ sum{t,PER, sum{s,SCEN, pint(a,r,s,t)}} 
+     - sum{t,PER, sum{s,BAU, pint(a,r,s,t)}}]
+    / 100 + sum{t,PER, sum{s,BAU, pint(a,r,s,t)}};
+
+Coefficient (all,c,COMM)(all,r,REG)
+  Price_Prodcr(c,r) 
+# Difference output price change counterfactual scenario wrt BAU price change#;
+! Price_Producer_Change in GAMS code!
+Formula (all,c,COMM)(all,r,REG)
+  Price_Prodcr(c,r) = 
+   [sum{t,PER, sum{s,SCEN, pds(c,r,s,t)}} 
+   - sum{t,PER, sum{s,BAU, pds(c,r,s,t)}}]
+   / 100 + sum{t,PER, sum{s,BAU, pds(c,r,s,t)}};
+
+Coefficient (all,c,COMM)(all,r,REG)
+  Prod_Vol_Ch(c,r)
+# Difference ouput volume counterfactual scenario wrt BAU volume change # ;  
+! Prod_Volume_Changes in GAMS code!
+Formula (all,c,COMM)(all,r,REG)
+  Prod_Vol_Ch(c,r) = 
+   [sum{t,PER, sum{s,SCEN, qc(c,r,s,t)}} 
+   - sum{t,PER, sum{s,BAU, qc(c,r,s,t)}}]
+   / 100 + sum{t,PER, sum{s,BAU, qc(c,r,s,t)}};
+
+Coefficient (all,c,COMM)(all,r,REG)
+  Prod_Volume( c,r)
+  # Production volume in counterfactual scenario # ;
+  Formula (all,c,COMM)(all,r,REG)
+  Prod_Volume( c,r) = sum{t,STRT, sum{s,SCEN, VCB(c,r,s,t)}} 
+    * (1 + [sum{t,PER, sum{s,SCEN, qc(c,r,s,t)}}/100]);
+! qc is intiliazed at VCB so use the start value VCB adjusted by the % change
+during the scenrio (qc) to derive the production level at end of simulation !

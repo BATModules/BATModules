@@ -1,0 +1,33 @@
+!============================================================================
+  File      : R2C_ReadData.gmp
+  Remarks   : Read data from a GTAP-based model needed to create the link to 
+              CAPRI and combine in single coefficient
+ =============================================================================!
+
+!Region Coefficients combining data from scenarios and periods !
+
+! from updated data (levels)!
+Coefficient (all,d,DEMD)(all,a,ACTS)(all,r,REG)(all,s,SIM)(all,t,TIME)
+  VFP(d,a,r,s,t) # expenditure on d by act. a in r valued at producer prices #;
+  Formula (all,d,DEMD)(all,a,ACTS)(all,r,REG)(all,s,SIM)(all,t,TIME)
+  VFP(d,a,r,s,t)  = 0;
+Coefficient (all,c,COMM)(all,r,REG)(all,s,SIM)(all,t,TIME) 
+    VCB(c,r,s,t) # supply of commodity c in region r valued at basic prices #;  
+
+! from solution file (% change)!
+Coefficient (all,a,ACTS)(all,r,REG)(all,s,SIM)(all,t,TIME) 
+ pint(a,r,s,t) 
+ # Price of composite intermediate input c by activity a in r (% change)#;
+Coefficient (all,e,ENDW)(all,a,ACTS)(all,r,REG)(all,s,SIM)(all,t,TIME) 
+ pfe(e,a,r,s,t) 
+ # price of endowment e purchased by activity a region r (% change)#;
+Coefficient(all,c,COMM)(all,r,REG)(all,s,SIM)(all,t,TIME) 
+ pds(c,r,s,t) # price of domestically supplied commodity c in region r #; 
+Coefficient (all,c,COMM)(all,r,REG)(all,s,SIM)(all,t,TIME) 
+ qc(c,r,s,t) # Change total commodity supply in region r (%) #; 
+
+
+! First layer to get simulations read - in between {} needs to match elements
+  in SIM set!
+! Now using R for reference or BAU and S for counterfactual scenario!
+!$include  R2C\R2C_Read_S.gmp--S={R,S}!
