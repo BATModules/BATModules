@@ -20,6 +20,6 @@ The additions have no impact on model results unless the model closure is adjust
 
 ### **Documentation & code**
 
-For full documentation, including technical details on how to link the module to a target model, consult the [#ADD LINK] in the [BATModel Wiki](https://github.com/BATModules/BATModules/wiki). Add-on code for target models  is provided in both Visual Gtree (*gmp*) and standard GEMPACK (*tab*) file format. Post-simulation code is in R.
+For full documentation, including technical details on how to link the module to a target model, consult the [BATModel Wiki](https://github.com/BATModules/BATModules/wiki). Add-on code for target models  is provided in both Visual Gtree (*gmp*) and standard GEMPACK (*tab*) file format. Post-simulation code is provided in R.
 
 ![BATModel_EUacknowledgement](/images/BATModel_EUAcknowledgement_bottom.png)
