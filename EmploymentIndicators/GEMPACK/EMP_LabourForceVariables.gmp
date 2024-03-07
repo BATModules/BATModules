@@ -1,0 +1,98 @@
+!
+=== Code to introduce employment variables in GTAP based models ============
+
+--- PURPOSE
+New variables linked to employment measured in workers. The labour force
+variable is the number of workers, linked to changes in sectoral demand in the
+target model. The gap variable measures the difference between the standard GTAP
+labour force variable in effective economic units and the new workerr-based
+labour force variable
+
+---  USE 
+Add the code defining the variables and their links to target model variables.
+To make the labour force exogneous include the following closure swap in your
+command file (assuming GTAP v7 notations).
+
+swap qe(ENDWLAB,REG) = labforce(ENDWLAB,REG);
+
+---  DOCUMENTATION
+Full documentation is available from the BATModules Wiki
+(https://github.com/BATModules/BATModules/wiki)
+
+---  VERSION
+Version 1.0 (February 2024)
+
+---  CONTACT 
+Marijke Kuiper (Wageningen Economic Research) - marijke.kuiper@wur.nl
+!
+
+ 
+!Region GTAP Input files!
+
+! Standard GTAP basedata files!
+File  GTAPSETS   # file with set specification #;
+File  GTAPDATA   # file containing all base data #;
+
+!EndRegion!
+
+!Region GTAP set definitions!
+
+Set REG # regions #
+    read elements from file GTAPSETS header "REG";       
+Set ACTS # Activities # 
+    read elements from file GTAPSETS header "ACTS";
+Set ENDW # endowments #
+    read elements from file GTAPSETS header "ENDW";    
+
+!EndRegion!
+
+!Region GTAP variables!
+
+Variable (all,e,ENDW)(all,a,ACTS)(all,r,REG)
+    qfe(e,a,r) # demand for endowment e by act. a in region r #;
+Variable (all,e,ENDW)(all,r,REG)
+    qe(e,r) # supply of mobile and sluggish endowment e in region r #;
+
+!EndRegion!
+
+
+!Region New sets!
+
+Set EMP_ENDWLAB # unskilled labour endowment commodity#
+ read elements from file GTAPSETS header "LAB";
+Subset EMP_ENDWLAB is subset of ENDW; 
+
+!EndRegion!
+
+!Region Employment coefficient & variables !
+
+Coefficient (all,i,EMP_ENDWLAB)(all,j,ACTS)(all,r,REG)
+   EMP_QLAB(i,j,r) # Number of workers per sector and region (millions)#;
+ Read EMP_QLAB from file GTAPDATA header "QLAB";
+ Update (all,i,EMP_ENDWLAB)(all,j,ACTS)(all,r,REG)
+   EMP_QLAB(i,j,r) = qfe(i,j,r);
+
+Coefficient (all,i,EMP_ENDWLAB)(all,r,REG)
+   EMP_QTLAB(i,r) # Total number of workers by region (millions)#;
+   Formula (all,i,EMP_ENDWLAB)(all,r,REG)
+   EMP_QTLAB(i,r) = sum{j,ACTS, EMP_QLAB(i,j,r)};
+   
+Variable  (orig_level = EMP_QTLAB)(all,i,EMP_ENDWLAB)(all,r,REG)
+  EMP_labforce(i,r) # % Change in labour force by type (millions of workers)#;
+Variable  (orig_level = EMP_QTLAB)(all,i,EMP_ENDWLAB)(all,r,REG)
+  EMP_labgap (i,r) # Gap between labour force and qe developments #;
+! NB gap is result of initialization of prices at 1, value-shares in
+aggregation & CES functions not respecting quantities!
+  
+Equation E_EMP_labforce
+# Compute changes in labor force from changes in qfe applied to QLAB #
+(all,i,EMP_ENDWLAB)(all,r,REG)
+sum[j,ACTS, EMP_QLAB(i,j,r)]*EMP_labforce(i,r)=sum{j,ACTS,EMP_QLAB(i,j,r)*qfe(i,j,r)};
+
+Equation E_EMP_labgap
+# Compute gap between growth in labour force and exogenous qe change #
+(all,i,EMP_ENDWLAB)(all,r,REG)
+EMP_labforce(i,r) = qe(i,r) + EMP_labgap(i,r);
+
+!EndRegion!
+
