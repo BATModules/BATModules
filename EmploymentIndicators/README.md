@@ -1,6 +1,6 @@
 ![BATModel_logoround](/images/BATModel_logo_round_small.png)
 
-# Employment inidicators
+# Employment indicators
 
 *Modular code for enhancement of trade analysis with simulation models in GAMS or GEMPACK developed by Marijke Kuiper (Wageningen Economic Research)*
 
