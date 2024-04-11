@@ -21,6 +21,8 @@ For linking with MIRAGE, no adjustment is needed - the interface is implemented 
 You need to implement code that delivers the interface. One such GAMS file is provided already for MIRAGE, yet to be implemented for other models.
 
 # Technical documentation
-See the BATModules [wiki](https://github.com/BATModules/BATModules/wiki/Module-1.2-Regional-Environmental-Impacts).
+See the BATModules [wiki](https://github.com/BATModules/BATModules/wiki/REI-module-%E2%80%90-Regional-Environmental-Impacts).
+
+
 
 ![BATModel_EUacknowledgement](/images/BATModel_EUAcknowledgement_bottom.png)
