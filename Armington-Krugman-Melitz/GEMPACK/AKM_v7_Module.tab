@@ -294,7 +294,7 @@ EQUATION GENITCEQ  (all,i,COMM)(all,r,REG)(all,s,REG)
 genitc(i,r,s) =  zeta(i)*AKM_ESUBM(i)*(tm(i,s)+tms(i,r,s)) 
                + [theta(i)/(AKM_ESUBM(i)-1)] * itc(i,r,s) 
                + zeta(i)*fex(i,r,s) 
-               + zeta(i)*(MM_ESUBM(i)-1) * (pcif(i,r,s)-numeraire);
+               + zeta(i)*(AKM_ESUBM(i)-1) * (pcif(i,r,s)-numeraire);
 
 !Observe that theta=AKM_ESUBM-1 (granularity/ethier-krugman) implies genitc=itc, 
 corresponding with zeta=0! 
