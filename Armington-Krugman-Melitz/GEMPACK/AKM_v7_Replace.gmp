@@ -1,0 +1,134 @@
+!============================================================================
+
+  File      : AKM_Module.gmp
+  Author    : David Cui
+  Date      : 12-12-2023 15:49:09
+  Remarks   : The following equations are to replace their counterparts in the
+  			  model core.
+  			  
+ =============================================================================!
+
+Equation E_qfd
+# act. a demands for domestic good c #
+(all,c,NAKM_COMM)(all,a,ACTS)(all,r,REG)
+    qfd(c,a,r) = qfa(c,a,r) - ESUBD(c,r) * [pfd(c,a,r) - pfa(c,a,r)];
+
+Equation E_qfm
+# act. a demands for composite import c #
+(all,c,NAKM_COMM)(all,a,ACTS)(all,r,REG)
+    qfm(c,a,r) = qfa(c,a,r) - ESUBD(c,r) * [pfm(c,a,r) - pfa(c,a,r)];
+    
+Equation E_pfa 
+# industry price for composite commodities #
+(all,c,NAKM_COMM)(all,a,ACTS)(all,r,REG)
+    pfa(c,a,r) = [1 - FMSHR(c,a,r)] * pfd(c,a,r) + FMSHR(c,a,r) * pfm(c,a,r);
+    
+Equation E_qpd
+# private consumption demand for domestic goods #
+(all,c,NAKM_COMM)(all,r,REG)
+    qpd(c,r) = qpa(c,r) - ESUBD(c,r) * [ppd(c,r) - ppa(c,r)];
+
+Equation E_qpm
+# private consumption demand for aggregate imports #
+(all,c,NAKM_COMM)(all,r,REG)
+    qpm(c,r) = qpa(c,r) - ESUBD(c,r) * [ppm(c,r) - ppa(c,r)];
+
+Equation E_ppa
+# private consumption price for composite commodities #
+(all,c,NAKM_COMM)(all,r,REG)
+    ppa(c,r) = [1 - PMSHR(c,r)] * ppd(c,r) + PMSHR(c,r) * ppm(c,r);
+
+Equation E_qgd
+# government consumption demand for domestic goods #
+(all,c,NAKM_COMM)(all,r,REG)
+    qgd(c,r) = qga(c,r) - ESUBD(c,r) * [pgd(c,r) - pga(c,r)];
+
+Equation E_qgm
+# government consumption demand for aggregate imports #
+(all,c,NAKM_COMM)(all,r,REG)
+    qgm(c,r) = qga(c,r) - ESUBD(c,r) * [pgm(c,r) - pga(c,r)];
+
+Equation E_pga 
+# government consumption price for composite commodities #
+(all,c,NAKM_COMM)(all,r,REG)
+    pga(c,r) = [1 - GMSHR(c,r)] * pgd(c,r) + GMSHR(c,r) * pgm(c,r);
+
+Equation E_qid 
+# demand for domestic investment commodity c #
+(all,c,NAKM_COMM)(all,r,REG)
+    qid(c,r) = qia(c,r) - ESUBD(c,r) * [pid(c,r) - pia(c,r)];
+
+Equation E_qim 
+# demand for imported investment commodity c #
+(all,c,NAKM_COMM)(all,r,REG)
+    qim(c,r) = qia(c,r) - ESUBD(c,r) * [pim(c,r) - pia(c,r)];
+
+Equation E_pia 
+# investment price for composite commodities #
+(all,c,NAKM_COMM)(all,r,REG)
+    pia(c,r) = [1 - IMSHR(c,r)] * pid(c,r) + IMSHR(c,r) * pim(c,r);
+
+Equation E_qxs
+# regional demand for disaggregated imported commodities by source #
+(all,c,NAKM_COMM)(all,s,REG)(all,d,REG)
+    qxs(c,s,d)
+        = -ams(c,s,d) + qms(c,d) 
+        - ESUBM(c,d) * [pmds(c,s,d) - ams(c,s,d) - pms(c,d)];
+
+Equation E_pms
+# price for aggregate imports #
+(all,c,NAKM_COMM)(all,d,REG)
+    pms(c,d) = sum{s,REG, MSHRS(c,s,d) * [pmds(c,s,d) - ams(c,s,d)]};
+
+Equation E_EV_ALT
+# decomposition of Equivalent Variation #
+(all,r,NAKM_REG)
+    EV_ALT(r)
+        !< Preference shifts >!
+        = -[0.01 * UTILELASEV(r) * INCOMEEV(r)]
+        * [DPARPRIV(r) * loge(UTILPRIVEV(r) / UTILPRIV(r)) * dppriv(r)
+            + DPARGOV(r) * loge(UTILGOVEV(r) / UTILGOV(r)) * dpgov(r)
+            + DPARSAVE(r) * loge(UTILSAVEEV(r) / UTILSAVE(r)) * dpsave(r)]
+        !< Scaling factor >!
+        + [0.01 * EVSCALFACT(r)]
+        !< Changes in allocative efficiency >!
+        * [sum{c,COMM, sum{a,ACTS, PTAX(c,a,r) * [qca(c,a,r) - pop(r)]}}
+            + sum{e,ENDW, sum{a,ACTS, 
+                INCTAX(e,a,r) * [qes(e,a,r) - pop(r)]}}
+            + sum{e,ENDW, sum{a,ACTS,
+                ETAX(e,a,r) * [qfe(e,a,r) - pop(r)]}}
+            + sum{c,COMM, sum{a,ACTS, MFTAX(c,a,r) * [qfm(c,a,r) - pop(r)]}}
+            + sum{c,COMM, sum{a,ACTS, DFTAX(c,a,r) * [qfd(c,a,r) - pop(r)]}}
+            + sum{c,COMM, MPTAX(c,r) * [qpm(c,r) - pop(r)]}
+            + sum{c,COMM, DPTAX(c,r) * [qpd(c,r) - pop(r)]}
+            + sum{c,COMM, MGTAX(c,r) * [qgm(c,r) - pop(r)]}
+            + sum{c,COMM, DGTAX(c,r) * [qgd(c,r) - pop(r)]}
+            + sum{c,COMM, MITAX(c,r) * [qim(c,r) - pop(r)]}
+            + sum{c,COMM, DITAX(c,r) * [qid(c,r) - pop(r)]}
+            + sum{c,COMM, sum{d,REG, XTAXD(c,r,d) * [qxs(c,r,d) - pop(r)]}}
+            + sum{c,COMM, sum{s,REG, MTAX(c,s,r) * [qxs(c,s,r) - pop(r)]}}
+        !< Changes in endowments >!
+        + sum{e,ENDW, sum{a,ACTS, EVOS(e,a,r) * [qes(e,a,r) - pop(r)]}}
+            !< Depreciation >!
+        - VDEP(r) * [kb(r) - pop(r)]
+        !< Changes in technology >!
+        + sum{a,ACTS, VOS(a,r) * ao(a,r)}
+            + sum{a,ACTS, VVA(a,r) * ava(a,r)}
+            + sum{c,COMM, sum{a,ACTS, VFP(c,a,r) * aint(a,r)}}
+            + sum{a,ACTS, sum{e,ENDW, VFP(e,a,r) * afe(e,a,r)}}
+            + sum{a,ACTS, sum{c,COMM, VFP(c,a,r) * afa(c,a,r)}}
+            + sum{m,MARG, sum{c,COMM, sum{s,REG,
+                VTMFSD(m,c,s,r) * atmfsd(m,c,s,r)}}}
+            + sum{c,COMM, sum{s,REG, VMSB(c,s,r) * ams(c,s,r)}}
+        !< Changes in terms of trade >!
+        + sum{c,COMM, sum{d,REG, VFOB(c,r,d) * pfob(c,r,d)}}
+            + sum{m,MARG, VST(m,r) * pds(m,r)}
+            + NETINV(r) * pinv(r)
+            - sum{c,COMM, sum{s,REG, VFOB(c,s,r) * pfob(c,s,r)}}
+            - sum{m,MARG, VTMD(m,r) * pt(m)}
+            - SAVE(r) * psave(r)]
+        !< Changes in population >!
+        + 0.01 * INCOMEEV(r) * pop(r);
+
+
+
