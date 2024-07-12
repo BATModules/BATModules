@@ -1,1 +1,23 @@
+!============================================================================
 
+  File      : AKM_Module_Activate.gmp
+  Author    : David Cui
+  Date      : 12-12-2023 15:49:09
+  Remarks   : Activate Armington-Krugman-Melitz module by setting parameter
+			  value to 1.
+
+ =============================================================================!
+
+Coefficient (parameter) (all,c,COMM) AKMCOMM(c);
+Formula(initial) (all,c,COMM) AKMCOMM(c) = 1;
+Read (IfHeaderExists) AKMCOMM from file GTAPPARM header "AKMC";
+
+Set AKM_COMM # AKM-Melitz commodities # = (all,c,COMM:AKMCOMM(c)=1);
+Set NAKM_COMM = COMM - AKM_COMM;
+
+Coefficient (parameter) (all,r,REG) AKMREG(r);
+Formula(initial) (all,r,REG) AKMREG(r) = 1;
+Read (IfHeaderExists) AKMREG from file GTAPPARM header "AKMR";
+
+Set AKM_REG # AKM-Melitz regions # = (all,r,REG:AKMREG(r)=1);
+Set NAKM_REG = REG - AKM_REG;
