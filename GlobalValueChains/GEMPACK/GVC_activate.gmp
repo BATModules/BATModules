@@ -1,19 +1,18 @@
 !============================================================================
 
-  File      : MRIO_Activate.gmp
+  File      : GVC_Activate.gmp
   Author    : David Cui
   Date      : 03-03-2023 15:49:09
-  Remarks   : MRIO module code based on GTAPv7-MRIO model and GTAP10.1 data.
+  Remarks   : GVC module code based on GTAPv7-MRIO model and GTAP10.1 data.
 
  =============================================================================!
 
-!MRIO-Module-Starts!
+!GVC-Module-Starts!
 
-!<  @MRIO: Define sets for all economic agents >!
 Set
-    FDEM # Final agents # (hhld, govt, invt);
+    FINDEM # Final agents # (hhld, govt, invt);
 Set
-    AGENTS # Economic agents # = ACTS + FDEM; 
+    AGENTS # Economic agents # = ACTS + FINDEM; 
 !<
     |---------------------------------------------------|
     |                   AGENTS(aa)                      |
@@ -21,13 +20,12 @@ Set
     |  ACTS(a)      |  HHLD     |  GOVT     |  INVT     |  
     |---------------------------------------------------|
 >!
-!<  @MRIO: End of changes >!
 
-Coefficient (parameter) GVC_ACT #= 0/1 to de/activate MRIO module#;
-Formula(initial) GVC_ACT = 0;
-Read (IfHeaderExists) GVC_ACT from file MODPARM1 header "MRIO";
+Coefficient (parameter) GVC_ACT #= 0/1 to de/activate GVC module#;
+Formula (initial) GVC_ACT = 0;
+Read (IfHeaderExists) GVC_ACT from file MODPARM1 header "GVC";
 
-Set GVC_REG #Regions with MRIO module switched on# = (all,r,REG:GVC_ACT = 1);
-Set GVC0REG #Regions with MRIO module switched off# = REG - GVC_REG;
+Set GVCREG #Regions with GVC module switched on# = (all,r,REG:GVC_ACT=1);
+Set NGVCREG #Regions with GVC module switched off# = REG - GVCREG;
 
-!MRIO-Module-Ends!
+!GVC-Module-Ends!
