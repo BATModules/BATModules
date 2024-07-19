@@ -1,0 +1,64 @@
+---
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+# **GTAP Global Value Chains module**
+
+*Modular enhancement of trade analysis with simulation models in GAMS or
+GEMPACK developed by David Cui (Wageningen Economic Research)*
+
+### **Objective**
+
+The purpose of creating this module is to enable a flexible switch
+between the GTAP-GVC model and the standard GTAP model. With a
+switchable module, modellers can attach this module to other GTAP-based
+CGE models (e.g., MAGNET) and use this module to gain insights into the
+results at the MRIO level and compare these results with the results
+derived from the standard GTAP version.
+
+### **Applicability & incompatibilities**
+
+The GVC module is created based on the GTAPv7-MRIO model. The code for
+this module consists of three parts:
+
+1\. module switch with parameter setting
+
+A key feature of this module is an introduction of a parameter used to
+control the switch between the standard GTAP version and the GVC
+version. If the parametric value is set to 1, the GVC module is
+activated; if the parametric value is set to 0, the module will be
+switched off and thus the model is reverted to the standard GTAP
+version.
+
+2\. Modified update statements for import flows coefficients
+
+To facilitate modularity and updating, the formulas used to update
+import flows coefficients in the GTAPv7-MRIO model are replaced with
+update statements defined respectively for the standard version and for
+the GVC version. With these modifications, all the update statements for
+import flows coefficients defined over GVCREG can be placed in the GVC
+module, thus making the module fully detachable from the core model.
+
+3\. Equations defined separately in the model core and in the module
+
+While several variables and equations are used exclusively in the GVC
+model, a number of other equations are used both in the GVC model and in
+the standard GTAP model, although these equations are presented
+differently in the two versions. The defined region sets, NGVCREG and
+GVCREG, are used to de/activate these equations in different model
+versions.
+
+Modellers should be aware that when the GVC module is switched on, the
+model's results will be affected to some extent since the Armington
+trade structure will be replaced by the MRIO trade structure.
+
+### **Documentation & code**
+
+For full documentation, including technical details on how to link the
+module to a target model, consult the [BATModel
+Wiki](https://github.com/BATModules/BATModules/wiki). Code is provided
+in
+[GEMPACK](https://github.com/BATModules/BATModules/blob/main/GLobalValueChains/GEMPACK)
+in both Visual Gtree (*gmp*) and standard GEMPACK (*tab*) file format.
